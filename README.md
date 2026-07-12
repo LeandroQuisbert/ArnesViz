@@ -1,4 +1,4 @@
-## VERSIÓN 1.0 – DOCUMENTACIÓN DE ARQUITECTURA DEL VISUALIZADOR DE ARNÉS
+## VERSIÓN 1.1 – DOCUMENTACIÓN DE ARQUITECTURA DEL VISUALIZADOR DE ARNÉS
 
 ---
 
@@ -13,38 +13,35 @@ Se mantiene el propósito original del MVP: ofrecer una vista interactiva del ar
 
 ---
 
-### 2. SISTEMA DE IDENTIFICADORES
+### 2. SISTEMA DE IDENTIFICADORES (ÍNDICE DE ENTIDADES)
 
-2.1. Cada entidad recibe un **ID único** compuesto por una letra de tipo más un número de tres dígitos.  
-2.2. Para los contenedores se utiliza una única letra **`T`** (de *contenedor*) con un rango numérico que indica el nivel jerárquico.  
-2.3. Los conectores, cables, acoples y nets mantienen sus prefijos independientes.
+2.1. Cada entidad del sistema recibe un **ID único** compuesto por una letra de tipo más un número de tres dígitos. La siguiente tabla actúa como índice general de todas las entidades modeladas.
 
-**Tabla 1 – Prefijos y rangos de identificación**
+**Tabla 1 – Índice de entidades y prefijos de identificación**
 
-| Prefijo | Tipo de entidad          | Rango numérico       | Ejemplo |
+| Prefijo | Entidad                  | Rango numérico       | Ejemplo |
 |---------|--------------------------|----------------------|---------|
-| T       | system (sistema raíz)    | 100 – 199            | T100    |
-| T       | enclosure (caja)         | 200 – 299            | T200    |
-| T       | pcb (placa de circuito)  | 300 – 399            | T300    |
-| C       | connector (conector)     | 001 – 999            | C001    |
-| W       | wired (cable fijo)       | 001 – 999            | W001    |
-| M       | mated (acople enchufable)| 001 – 999            | M001    |
-| N       | net (señal lógica)       | 001 – 999            | N001    |
+| T       | Contenedor (system, enclosure, pcb) | 100 – 399 (subdividido) | T100, T200, T300 |
+| C       | Conector (connector)     | 001 – 999            | C001    |
+| W       | Cable fijo (wired)       | 001 – 999            | W001    |
+| M       | Acople enchufable (mated)| 001 – 999            | M001    |
+| N       | Señal lógica (net)       | 001 – 999            | N001    |
 
-2.4. El primer dígito del número en los contenedores **`T`** actúa como indicador de nivel:  
- 2.4.1. `1xx` → sistema.  
- 2.4.2. `2xx` → caja.  
- 2.4.3. `3xx` → placa.  
-2.5. Esta organización permite hasta 99 contenedores de cada tipo (ej. T101, T201, T301…) y mantiene la coherencia conceptual: todos los contenedores comparten prefijo, pero su posición jerárquica es deducible del número.
+2.2. La letra **`T`** agrupa todos los contenedores (system, enclosure, pcb) bajo un mismo prefijo. La subdivisión del rango numérico indica el nivel jerárquico:  
+ 2.2.1. `1xx` → sistema raíz (system).  
+ 2.2.2. `2xx` → caja (enclosure).  
+ 2.2.3. `3xx` → placa de circuito (pcb).  
 
-2.6. El campo `type` (p. ej. `"system"`, `"enclosure"`, `"pcb"`) sigue presente para definir explícitamente el subtipo, mientras que el ID solo se usa como identificador único.
+2.3. Esta organización permite hasta 99 contenedores de cada tipo (ej. T101, T201, T301…) y mantiene la coherencia conceptual: todos los contenedores comparten prefijo, pero su posición jerárquica es deducible del número.
+
+2.4. El campo `type` (p. ej. `"system"`, `"enclosure"`, `"pcb"`) sigue presente en los datos para definir explícitamente el subtipo; el ID solo actúa como identificador único.
 
 **Memoria de diseño – Sección 2**  
-El sistema de prefijos con rango se adoptó para unificar los contenedores bajo una sola letra `T` y al mismo tiempo permitir identificar visualmente el nivel jerárquico. Antes se usaban letras distintas (`S`, `E`, `P`), lo que obligaba a recordar qué letra correspondía a cada tipo. Con `T` + centenas se gana claridad y se dispone de 99 espacios por nivel, una cantidad muy superior a la necesaria (en la práctica rara vez se superan 10 elementos por tipo). Los conectores y relaciones mantienen sus propios prefijos porque son entidades fundamentalmente diferentes y no se benefician de esta jerarquía numérica.
+La tabla única de entidades facilita la consulta rápida y evita la redundancia de tener varias filas para el mismo prefijo. La subdivisión de `T` se explica a continuación, manteniendo la tabla limpia. Se conserva el campo `type` porque la letra `T` por sí sola no distingue entre sistema, caja o placa; el rango numérico da una pista, pero el tipo explícito es necesario para el procesamiento. La decisión de usar centenas como niveles jerárquicos se tomó para permitir un crecimiento muy holgado (en la práctica rara vez se superan 10 elementos por tipo). Conectores, cables, acoples y nets tienen cada uno su propio prefijo porque representan conceptos fundamentalmente diferentes.
 
 ---
 
-### 3. COMPONENTES NO CONECTORES: SYSTEM, ENCLOSURE, PCB
+### 3. CONTENEDORES (SYSTEM, ENCLOSURE, PCB)
 
 Son los **contenedores** que definen la estructura física del arnés. No tienen género ni pines; su función es agrupar conectores y limitar su movimiento.
 
@@ -74,7 +71,7 @@ Son los **contenedores** que definen la estructura física del arnés. No tienen
 | T301 | pcb        | PCB 2          | T201  | PCB2       | 2070, 289, 472, 817 |
 
 **Memoria de diseño – Sección 3**  
-Los contenedores siempre han sido los elementos estructurales del modelo. Se decidió que `parent_id` nulo solo se permite en el sistema raíz para evitar componentes fuera de la jerarquía, lo que simplifica las comprobaciones de contención. Las posiciones son absolutas respecto al lienzo para facilitar el renderizado; las relaciones de contención se aplican durante el arrastre recortando coordenadas.
+El término "contenedores" es más claro y directo que "componentes no conectores". Agrupa system, enclosure y pcb bajo un mismo concepto: elementos que contienen otros. La jerarquía de `parent_id` nulo solo en el sistema raíz evita componentes huérfanos y simplifica las comprobaciones de contención. Las posiciones son absolutas respecto al lienzo para facilitar el renderizado.
 
 #### 3.3 Movimiento y redimensionamiento
 
@@ -439,16 +436,9 @@ La validación de exclusividad es nueva en esta versión y responde a la necesid
 
 ### 13. HISTORIAL DE VERSIONES
 
-**Versión 1.0** – Documentación inicial completa del MVP con las siguientes características definitivas:
+**Versión 1.0** – Documentación inicial completa del MVP con sistema de IDs, jerarquía de contenedores, conectores con expectedPair, cálculo dinámico de lockedWith, nets como etiquetas compartidas, y validaciones.
 
-- Sistema de IDs con prefijos y rangos numéricos (`T` para contenedores).
-- Jerarquía de contención con movimiento solidario en tiempo real.
-- Redimensionamiento con conservación de distancia a esquina fija.
-- Conectores con `expectedPair` para exclusividad de acople.
-- Cálculo dinámico de `lockedWith` a partir de `M` activos.
-- Nets como etiquetas compartidas con topología emergente.
-- Ubicación de wires determinada por ancestro común de extremos.
-- Sin magnetismo ni desconexión en esta fase.
-- Validaciones de género, pines y exclusividad de pareja.
-
-**Fin de la Versión 1.0**
+**Versión 1.1** – Mejoras de estructura y claridad:
+- La tabla de identificación de entidades se consolida en un índice único (Tabla 1) con una sola fila para el prefijo `T`, detallando la subdivisión de rangos en el texto.
+- La sección 3 se renombra de "Componentes no conectores" a "Contenedores (system, enclosure, pcb)" para reflejar mejor su función.
+- Sin cambios en la lógica del sistema, solo en la presentación de la documentación.
