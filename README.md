@@ -6,7 +6,7 @@
 
 1.1. Este visualizador modela el arnés de una moto eléctrica como un grafo de **componentes físicos** (contenedores, conectores) unidos por **relaciones** (cables fijos, acoples enchufables) y organizados mediante **señales lógicas** (nets).  
 
-1.2. Permite mover elementos respetando la jerarquía de contención, visualizar cables flexibles y validar automáticamente la coherencia de géneros, pines y señales.
+1.2. Permite visualizar los elementos, moverlos en modo edición respetando la jerarquía de contención, observar cables flexibles y validar automáticamente la coherencia de géneros, pines y señales.
 
 **Memoria de diseño – Sección 1**  
 Se mantiene el propósito original del MVP: ofrecer una vista interactiva del arnés con restricciones físicas realistas. La separación entre componentes, relaciones y señales sigue el patrón modelo-vista, donde los componentes tienen presencia gráfica, las relaciones definen vínculos y los nets permiten validación eléctrica. La decisión de mantener estos tres pilares se tomó para no mezclar responsabilidades y facilitar futuras ampliaciones como simulación de continuidad.
@@ -130,6 +130,8 @@ Los conectores son los puntos de conexión eléctrica. Cada uno tiene un género
 | edgeSide      | string / null| `"left"`, `"right"`, `"top"`, `"bottom"` o `null` |
 | position      | object       | `{ x, y, width, height }` en píxeles |
 | expectedPair  | string / null| ID del conector con el que está diseñado para acoplarse, o `null` si admite cualquier compatible |
+| notes         | string       | Anotaciones de texto libre (opcional) |
+| hidden        | boolean      | Si es `true`, el conector no se muestra en la vista (por defecto `false`) |
 
 4.1.1. El campo `edgeSide` define el tipo de fijación del conector:  
  a. **Anclado (anchored)**: cuando `edgeSide` toma uno de los valores `"left"`, `"right"`, `"top"` o `"bottom"`. El conector está fijo a ese borde del contenedor padre y solo puede deslizarse a lo largo del mismo o cambiarse a otro borde.  
@@ -137,6 +139,9 @@ Los conectores son los puntos de conexión eléctrica. Cada uno tiene un género
 
 **Memoria de diseño – 4.1**  
 El campo `expectedPair` sustituye al antiguo `lockedWith` persistente. La razón del cambio es que `lockedWith` representaba un estado (con quién está bloqueado ahora), mientras que `expectedPair` expresa una intención de diseño inmutable: este conector está pensado para enchufarse a ese otro, y solo a ese. Esto permite validar en tiempo de diseño que las conexiones son correctas y evita ambigüedades. El bloqueo real (`lockedWith`) se calcula dinámicamente a partir de los M activos, reflejando el estado actual del arnés.
+
+**Memoria de diseño – Atributos `notes` y `hidden`**  
+Se añaden dos campos opcionales para cubrir necesidades prácticas sin introducir clasificaciones artificiales. `notes` permite anotar cualquier información relevante (ej. "comprobar disponibilidad en almacén", "usar solo con cable apantallado") sin que el sistema interprete semántica. `hidden` permite ocultar conectores auxiliares o de referencia que no deben mostrarse en la vista principal. La ausencia de un campo `status` o `state` en conectores es intencionada: un conector sin wires ni mateds está implícitamente libre, y no necesita una etiqueta que lo declare.
 
 #### 4.2 Género y validación
 
@@ -151,20 +156,20 @@ Se eliminó la restricción de que `from` deba ser macho y `to` hembra porque en
 
 **Tabla 5 – Conectores del ejemplo**
 
-| ID   | Nombre       | Padre | Designator | Pines | Género | EdgeSide | Posición (x, y, w, h) | expectedPair |
-|------|--------------|-------|------------|-------|--------|----------|------------------------|--------------|
-| C001 | Molex 2P     | T300  | J1         | 2     | male   | right    | 548, 360, 180, 115    | C002         |
-| C002 | Molex 2P     | T200  | J2         | 2     | female | null     | 588, 360, 180, 115    | C001         |
-| C003 | GX12         | T200  | J3         | 2     | female | right    | 1060, 900, 180, 115   | C004         |
-| C004 | GX12         | T100  | J4         | 2     | male   | null     | 1240, 900, 180, 115   | C003         |
-| C005 | GX12 4P      | T100  | J5         | 4     | male   | null     | 1463, 900, 180, 115   | C006         |
-| C006 | GX12 4P      | T201  | J6         | 4     | female | left     | 1643, 900, 180, 115   | C005         |
-| C007 | Molex 5P     | T201  | J7         | 5     | male   | null     | 1890, 360, 180, 115   | C008         |
-| C008 | Molex 5P     | T301  | J8         | 5     | female | left     | 1890, 360, 180, 115   | C007         |
-| C009 | Molex 2P     | T301  | J9         | 2     | female | left     | 1890, 540, 180, 115   | null         |
+| ID   | Nombre       | Padre | Designator | Pines | Género | EdgeSide | Posición (x, y, w, h) | expectedPair | notes | hidden |
+|------|--------------|-------|------------|-------|--------|----------|------------------------|--------------|-------|--------|
+| C001 | Molex 2P     | T300  | J1         | 2     | male   | right    | 548, 360, 180, 115    | C002         | –     | false  |
+| C002 | Molex 2P     | T200  | J2         | 2     | female | null     | 588, 360, 180, 115    | C001         | –     | false  |
+| C003 | GX12         | T200  | J3         | 2     | female | right    | 1060, 900, 180, 115   | C004         | –     | false  |
+| C004 | GX12         | T100  | J4         | 2     | male   | null     | 1240, 900, 180, 115   | C003         | –     | false  |
+| C005 | GX12 4P      | T100  | J5         | 4     | male   | null     | 1463, 900, 180, 115   | C006         | –     | false  |
+| C006 | GX12 4P      | T201  | J6         | 4     | female | left     | 1643, 900, 180, 115   | C005         | –     | false  |
+| C007 | Molex 5P     | T201  | J7         | 5     | male   | null     | 1890, 360, 180, 115   | C008         | –     | false  |
+| C008 | Molex 5P     | T301  | J8         | 5     | female | left     | 1890, 360, 180, 115   | C007         | –     | false  |
+| C009 | Molex 2P     | T301  | J9         | 2     | female | left     | 1890, 540, 180, 115   | null         | "Reserva para faro auxiliar" | false  |
 
 **Memoria de diseño – 4.3**  
-La tabla ahora incluye `expectedPair` en lugar de `lockedWith`. Los conectores C001 a C008 tienen pareja esperada explícita, mientras que C009 está libre (null). Esto refleja la intención de diseño: C009 es un conector de reserva sin uso planificado, por lo que no tiene pareja asignada.
+La tabla ahora incluye `expectedPair`, `notes` y `hidden`. Los conectores C001 a C008 tienen pareja esperada explícita, mientras que C009 está libre (`expectedPair: null`) y lleva una nota descriptiva. La ausencia de una columna de estado es deliberada: el sistema deduce que un conector está libre si no aparece en ningún `W` ni en ningún `M` con `status: "connected"`. Si un diseñador necesita marcar un conector como reserva, punto de prueba u obsoleto, dispone del campo `notes` para anotarlo sin forzar una clasificación rígida que el sistema deba interpretar.
 
 #### 4.4 Posicionamiento de conectores anclados
 
@@ -417,33 +422,23 @@ La validación de exclusividad es nueva en esta versión y responde a la necesid
 11.1. **Cables fijos (W):** líneas azules curvas y flexibles, siempre en primer plano.  
 11.2. **Acoples enchufables (M):** sin línea; los conectores aparecen enfrentados y alineados por sus pines.  
 11.3. **Conectores anclados:** se muestran dentro del contenedor, con los círculos de pines exactamente sobre el borde indicado.  
-11.4. **Interacción:** clic en cualquier entidad → panel de propiedades con todos los atributos.  
+11.4. **Modos de interacción (lectura / edición):**  
+ 11.4.1. El sistema arranca por defecto en **modo solo lectura**. En este estado no es posible arrastrar componentes, evitando modificaciones accidentales del layout.  
+ 11.4.2. Para activar el **modo edición** se utiliza el atajo de teclado **Ctrl+Shift+E** (toggle). El mismo atajo desactiva el modo edición y vuelve a solo lectura.  
+ 11.4.3. Un **icono visible** en la barra de herramientas o en la esquina del lienzo indica el estado actual (por ejemplo, un candado cerrado para solo lectura y un candado abierto para edición).  
+ 11.4.4. En modo edición se habilitan todas las interacciones descritas en este documento: arrastre de conectores, cambio de borde en anclados, redimensionamiento de contenedores, movimiento solidario y apertura del panel de propiedades al hacer clic.  
+ 11.4.5. El panel de propiedades es accesible en ambos modos. En solo lectura muestra la información sin permitir edición de campos; en modo edición los campos editables se habilitan.
 11.5. **Redimensionamiento:** tiradores en todos los bordes y esquinas de los contenedores. Los conectores anclados mantienen distancia a la esquina fija más cercana, según lo descrito en **3.3.2.1**.  
 11.6. **Resaltado de nets:** al seleccionar un net en un panel lateral, todos los wires que lo transportan cambian temporalmente de color o aumentan su grosor.
 
-#### 11.7 Modos de operación (lectura / edición)
-
-11.7.1. El sistema dispone de dos modos de funcionamiento claramente diferenciados: **modo lectura** y **modo edición**.  
-11.7.2. **Modo lectura (por defecto):**  
- a. Es el estado inicial al cargar cualquier proyecto.  
- b. El lienzo está bloqueado: no se puede arrastrar, mover ni modificar ningún componente.  
- c. Los clics sobre elementos solo abren el panel de propiedades informativo.  
- d. Este modo protege el layout de movimientos accidentales durante la consulta visual.  
-11.7.3. **Modo edición:**  
- a. Se activa mediante el atajo de teclado **Ctrl+Shift+E** (combinación mantenida para evitar activaciones involuntarias).  
- b. También puede activarse desde un botón o icono en la barra de herramientas.  
- c. En este modo se habilitan todas las capacidades de arrastre, redimensionamiento, cambio de borde, y movimiento solidario descritas en las secciones anteriores.  
- d. Un **icono de estado** visible en la interfaz (por ejemplo, un candado abierto/cerrado en la barra superior) indica permanentemente en qué modo se encuentra el usuario.  
-11.7.4. Al abandonar el modo edición (pulsando de nuevo Ctrl+Shift+E o el botón correspondiente), el sistema vuelve a bloquear el lienzo, conservando los cambios realizados.
-
-**Memoria de diseño – 11.7**  
-El modo edición permanente suponía un riesgo real para la integridad del diseño: un clic accidental podía desplazar un conector o una caja sin que el usuario se percatara. La introducción de un toggle explícito con atajo de teclado y un indicador visual de estado protege el trabajo y proporciona una experiencia de usuario mucho más segura y profesional. La combinación Ctrl+Shift+E se eligió por ser poco propensa a activaciones involuntarias y por ser fácil de recordar (E de "edición").
+**Memoria de diseño – 11.4**  
+El cambio de "modo edición siempre activo" a un sistema con toggle resuelve un riesgo real detectado en las versiones anteriores: un clic accidental podía desplazar un conector y deshacer cuidadosamente el layout. Con el modo solo lectura por defecto, el usuario navega y consulta el arnés con total seguridad. El atajo Ctrl+Shift+E es fácil de recordar y no interfiere con atajos comunes de navegador. El icono de estado proporciona retroalimentación inmediata sobre el modo actual, evitando confusiones.
 
 ---
 
 ### 12. NOTAS PARA FUTURAS VERSIONES
 
-12.1. Incorporar la posibilidad de **personalizar el atajo de teclado** para el toggle de edición.  
+12.1. Incorporar la posibilidad de que el **modo de arranque** (lectura o edición) sea configurable en preferencias de usuario.  
 12.2. Implementar **enrutamiento automático de wires** que evite obstáculos y permita agrupar cables en mazos.  
 12.3. Adaptar el **tamaño visual de los conectores** al número de pines o a la longitud del `designator` para mejorar la legibilidad.  
 12.4. Añadir un **panel de validación global** que recoja todas las inconsistencias encontradas (género, pines, conflictos de nets, violaciones de `expectedPair`).  
@@ -459,8 +454,11 @@ El modo edición permanente suponía un riesgo real para la integridad del dise�
 **Versión 1.1** – Mejoras de estructura y claridad:
 - La tabla de identificación de entidades se consolida en un índice único (Tabla 1) con una sola fila para el prefijo `T`, detallando la subdivisión de rangos en el texto.
 - La sección 3 se renombra de "Componentes no conectores" a "Contenedores (system, enclosure, pcb)" para reflejar mejor su función.
+- Sin cambios en la lógica del sistema, solo en la presentación de la documentación.
 
-**Versión 1.2** – Implementación de seguridad y control de edición:
-- Se añade el punto 11.7 con la definición de los modos lectura (por defecto) y edición (activado con Ctrl+Shift+E).
-- Se incluye un indicador visual de estado (icono de candado) y la protección del layout en modo lectura.
-- La sección 12.1 recoge la futura personalización del atajo de teclado.
+**Versión 1.2** – Mejoras de usabilidad y simplificación del modelo:
+- El modo edición deja de estar permanentemente activo. Se introduce un toggle con atajo **Ctrl+Shift+E** para alternar entre modo solo lectura (por defecto) y modo edición. Se añade un icono indicador del estado actual.
+- Se elimina cualquier categorización explícita del estado de los conectores (reserved, test_point, deprecated, etc.). Un conector sin wires ni mateds está implícitamente libre.
+- Se añaden los campos opcionales `notes` (texto libre para anotaciones) y `hidden` (booleano para ocultar conectores de la vista) en los conectores.
+- Se actualiza la tabla de conectores del ejemplo para reflejar los nuevos campos.
+- Se añaden memorias de diseño que justifican estos cambios.
