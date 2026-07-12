@@ -1,4 +1,4 @@
-## VERSIÓN 1.1 – DOCUMENTACIÓN DE ARQUITECTURA DEL VISUALIZADOR DE ARNÉS
+## VERSIÓN 1.2 – DOCUMENTACIÓN DE ARQUITECTURA DEL VISUALIZADOR DE ARNÉS
 
 ---
 
@@ -417,15 +417,33 @@ La validación de exclusividad es nueva en esta versión y responde a la necesid
 11.1. **Cables fijos (W):** líneas azules curvas y flexibles, siempre en primer plano.  
 11.2. **Acoples enchufables (M):** sin línea; los conectores aparecen enfrentados y alineados por sus pines.  
 11.3. **Conectores anclados:** se muestran dentro del contenedor, con los círculos de pines exactamente sobre el borde indicado.  
-11.4. **Interacción:** clic en cualquier entidad → panel de propiedades con todos los atributos. El modo edición está permanentemente activo en esta fase MVP.  
+11.4. **Interacción:** clic en cualquier entidad → panel de propiedades con todos los atributos.  
 11.5. **Redimensionamiento:** tiradores en todos los bordes y esquinas de los contenedores. Los conectores anclados mantienen distancia a la esquina fija más cercana, según lo descrito en **3.3.2.1**.  
 11.6. **Resaltado de nets:** al seleccionar un net en un panel lateral, todos los wires que lo transportan cambian temporalmente de color o aumentan su grosor.
+
+#### 11.7 Modos de operación (lectura / edición)
+
+11.7.1. El sistema dispone de dos modos de funcionamiento claramente diferenciados: **modo lectura** y **modo edición**.  
+11.7.2. **Modo lectura (por defecto):**  
+ a. Es el estado inicial al cargar cualquier proyecto.  
+ b. El lienzo está bloqueado: no se puede arrastrar, mover ni modificar ningún componente.  
+ c. Los clics sobre elementos solo abren el panel de propiedades informativo.  
+ d. Este modo protege el layout de movimientos accidentales durante la consulta visual.  
+11.7.3. **Modo edición:**  
+ a. Se activa mediante el atajo de teclado **Ctrl+Shift+E** (combinación mantenida para evitar activaciones involuntarias).  
+ b. También puede activarse desde un botón o icono en la barra de herramientas.  
+ c. En este modo se habilitan todas las capacidades de arrastre, redimensionamiento, cambio de borde, y movimiento solidario descritas en las secciones anteriores.  
+ d. Un **icono de estado** visible en la interfaz (por ejemplo, un candado abierto/cerrado en la barra superior) indica permanentemente en qué modo se encuentra el usuario.  
+11.7.4. Al abandonar el modo edición (pulsando de nuevo Ctrl+Shift+E o el botón correspondiente), el sistema vuelve a bloquear el lienzo, conservando los cambios realizados.
+
+**Memoria de diseño – 11.7**  
+El modo edición permanente suponía un riesgo real para la integridad del diseño: un clic accidental podía desplazar un conector o una caja sin que el usuario se percatara. La introducción de un toggle explícito con atajo de teclado y un indicador visual de estado protege el trabajo y proporciona una experiencia de usuario mucho más segura y profesional. La combinación Ctrl+Shift+E se eligió por ser poco propensa a activaciones involuntarias y por ser fácil de recordar (E de "edición").
 
 ---
 
 ### 12. NOTAS PARA FUTURAS VERSIONES
 
-12.1. Incorporar un **modo “no edición”** con bloqueo del lienzo mediante un botón.  
+12.1. Incorporar la posibilidad de **personalizar el atajo de teclado** para el toggle de edición.  
 12.2. Implementar **enrutamiento automático de wires** que evite obstáculos y permita agrupar cables en mazos.  
 12.3. Adaptar el **tamaño visual de los conectores** al número de pines o a la longitud del `designator` para mejorar la legibilidad.  
 12.4. Añadir un **panel de validación global** que recoja todas las inconsistencias encontradas (género, pines, conflictos de nets, violaciones de `expectedPair`).  
@@ -441,4 +459,8 @@ La validación de exclusividad es nueva en esta versión y responde a la necesid
 **Versión 1.1** – Mejoras de estructura y claridad:
 - La tabla de identificación de entidades se consolida en un índice único (Tabla 1) con una sola fila para el prefijo `T`, detallando la subdivisión de rangos en el texto.
 - La sección 3 se renombra de "Componentes no conectores" a "Contenedores (system, enclosure, pcb)" para reflejar mejor su función.
-- Sin cambios en la lógica del sistema, solo en la presentación de la documentación.
+
+**Versión 1.2** – Implementación de seguridad y control de edición:
+- Se añade el punto 11.7 con la definición de los modos lectura (por defecto) y edición (activado con Ctrl+Shift+E).
+- Se incluye un indicador visual de estado (icono de candado) y la protección del layout en modo lectura.
+- La sección 12.1 recoge la futura personalización del atajo de teclado.
