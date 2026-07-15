@@ -2,7 +2,7 @@
 
 ---
 
-### 1. RESUMEN Y PROPÓSITO DEL SISTEMA
+### 1. RESUMEN Y PROPÓSITO DEL SISTEMA 
 
 1.1. Este visualizador modela el arnés de una moto eléctrica como un grafo de **componentes físicos** (contenedores, conectores) unidos por **relaciones** (cables fijos, acoples enchufables) y organizados mediante **señales lógicas** (nets).  
 
