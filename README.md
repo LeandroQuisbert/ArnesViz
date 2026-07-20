@@ -1,4 +1,4 @@
-## VERSIÓN 1.8.2 – DOCUMENTACIÓN DE ARQUITECTURA DEL VISUALIZADOR DE ARNÉS
+## VERSIÓN 1.9 – DOCUMENTACIÓN DE ARQUITECTURA DEL VISUALIZADOR DE ARNÉS
 
 ---
 
@@ -69,7 +69,7 @@ Se mantiene el propósito original del MVP: ofrecer una vista interactiva del ar
 
 2.5.1. **Regla general**:  
 - Todo componente con `parent_id: null` tiene posición absoluta respecto al lienzo (atributos `x`, `y`).  
-- Todo componente con `parent_id` no nulo tiene posición relativa a su padre (atributos `offsetX`, `offsetY` para contenedores; `offset` para conectores).  
+- Todo componente con `parent_id` no nulo tiene posición relativa a su padre (atributos `offsetX`, `offsetY` para contenedores; `offset` para conectores fijos; los conectores volantes no almacenan posición propia).  
 
 2.5.2. En la práctica actual, solo `T100` (system raíz) cumple `parent_id: null`. La regla está enunciada de forma genérica para admitir futuros componentes raíz sin modificar la lógica de posicionamiento.
 
@@ -129,37 +129,26 @@ El término "contenedores" agrupa system, enclosure y pcb bajo un mismo concepto
 
 3.3.1.1. Al arrastrar un contenedor, todos sus descendientes se desplazan el mismo vector **(dx, dy) en tiempo real**, sin retardo.  
 3.3.1.2. El contenedor arrastrado **no modifica su size** ni ninguna otra propiedad; solo cambian sus valores de posición (`offsetX`/`offsetY`, o `x`/`y` si es T100).  
-3.3.1.3. Los conectores se reposicionan automáticamente sobre el borde del padre en el mismo fotograma.
+3.3.1.3. Los conectores fijos (`mountType: "fixed"`) se reposicionan automáticamente sobre el borde del padre en el mismo fotograma. Los conectores volantes (`mountType: "flying"`) no se desplazan con el contenedor; su posición se recalcula a partir de su pareja fija en el M (ver 4.5.3).
 
 **Memoria de diseño – 3.3.1**  
-El movimiento solidario en tiempo real evita parpadeos. Al ser todas las posiciones relativas, mover un contenedor no requiere actualizar las coordenadas de sus descendientes; el renderizado recalcula las posiciones absolutas a partir de los offsets en cada frame. No se modifica el size durante el arrastre porque esa operación tiene su propio modo (redimensionamiento con handles).
+El movimiento solidario en tiempo real evita parpadeos. Al ser todas las posiciones relativas, mover un contenedor no requiere actualizar las coordenadas de sus descendientes; el renderizado recalcula las posiciones absolutas a partir de los offsets en cada frame. No se modifica el size durante el arrastre porque esa operación tiene su propio modo (redimensionamiento con handle). La excepción para conectores volantes se introdujo en V1.9 para reflejar la realidad física: el extremo de un cable no está atornillado a la caja, sino que se mueve con el conector al que está enchufado.
 
 ##### 3.3.2 Redimensionamiento
 
-3.3.2.1. Los contenedores pueden redimensionarse arrastrando cualquier esquina o borde (handles en todo el perímetro).  
-3.3.2.2. Durante el redimensionamiento, los conectores ajustan su posición según la regla definida en **3.3.2.3**.  
-3.3.2.3. **Comportamiento de conectores durante el redimensionamiento:**  
- 3.3.2.3.1. Un conector **conserva su distancia respecto a la esquina del borde que permanece fija durante el estiramiento**. La esquina fija es aquella que no es arrastrada por el tirador de redimensión.  
- 3.3.2.3.2. **Ejemplo concreto** (borde derecho, estiramiento vertical hacia abajo):  
-  a. Conector en el borde derecho (`edgeSide: "right"`) de un contenedor.  
-  b. Si el contenedor se estira **solo hacia abajo** (aumenta su altura, manteniendo fija la esquina superior izquierda), el borde derecho se alarga.  
-  c. La esquina superior derecha **no se mueve**.  
-  d. La distancia desde el centro del conector hasta esa esquina superior derecha **permanece constante**.  
-  e. **Por tanto, el conector no se desplaza.** El borde se estira por debajo de él, pero su posición absoluta no cambia.  
- 3.3.2.3.3. Regla general para cualquier borde:  
-  a. Si se estira un eje **paralelo** al borde donde está anclado el conector, se toma como referencia la esquina más cercana que **no** está siendo desplazada por el estiramiento. La distancia a esa esquina se mantiene, por lo que el conector **no se mueve** en la dirección del estiramiento.  
-  b. Si el estiramiento es **perpendicular** al borde, el borde mismo no se desplaza lateralmente, así que el conector **no cambia de posición**.  
-3.3.2.4. **Posicionamiento de handles en bordes con conectores:**  
- Para evitar interferencias visuales, los handles de redimensionamiento ubicados en un borde que contiene conectores se sitúan automáticamente en el extremo opuesto del borde, dejando libre la zona donde se encuentra el conector. Por ejemplo, si un conector está cerca de la parte superior de un borde derecho, el handle de ese borde aparecerá en la parte inferior.
+3.3.2.1. Los contenedores pueden redimensionarse arrastrando **exclusivamente la esquina inferior derecha**.  
+3.3.2.2. Durante el redimensionamiento:  
+ a. Los conectores fijos (`mountType: "fixed"`) conservan su distancia a la esquina superior izquierda del contenedor, que es la esquina fija durante el estiramiento.  
+ b. Los conectores volantes (`mountType: "flying"`) no se ven afectados por el redimensionamiento de su contenedor padre; su posición se recalcula a partir de su pareja fija en el M.
 
 **Memoria de diseño – 3.3.2**  
-Redimensionamiento desde cualquier borde para máxima flexibilidad. La regla de distancia a esquina fija evita comportamientos contraintuitivos. El punto 3.3.2.4 resuelve un problema práctico de usabilidad. Se ha eliminado cualquier mención a componentes no anclados, obsoleta desde la V1.7.
+La restricción del redimensionamiento a una única esquina (inferior derecha) simplifica la implementación y evita los problemas de redimensionamiento inverso detectados en versiones anteriores. La esquina superior izquierda actúa como referencia fija, y el offset de los conectores fijos se mantiene respecto a esa esquina. Esta decisión de diseño prioriza la estabilidad y la simplicidad frente a la flexibilidad total, que añadía complejidad sin un beneficio práctico significativo para el técnico.
 
 ---
 
 ### 4. CONECTORES
 
-Los conectores son los puntos de conexión eléctrica. Cada uno tiene un género y pertenece a un contenedor físico.
+Los conectores son los puntos de conexión eléctrica. Cada uno tiene un género, un tipo de montaje y pertenece a un contenedor físico.
 
 #### 4.1 Atributos
 
@@ -170,23 +159,26 @@ Los conectores son los puntos de conexión eléctrica. Cada uno tiene un género
 | id         | string        | C001, C002… |
 | type       | string        | `"connector"` |
 | name       | string        | Nombre descriptivo |
-| parent_id  | string        | ID del contenedor donde está montado |
+| parent_id  | string        | ID del contenedor donde está ubicado físicamente |
 | designator | string        | Etiqueta técnica (ej. "J1") |
 | pins       | number        | Cantidad de pines |
 | gender     | string        | `"male"` o `"female"` (obligatorio) |
+| mountType  | string        | **Obligatorio.** `"fixed"` (atornillado/soldado al contenedor) o `"flying"` (extremo de cable, se mueve con su pareja) |
 | edgeSide   | string        | **Obligatorio.** `"left"`, `"right"`, `"top"`, `"bottom"` |
-| offset     | number        | Distancia desde el extremo de referencia del borde (ver 4.1.1) |
+| offset     | number / null | Distancia desde el extremo de referencia del borde (ver 4.1.2). Solo para `mountType: "fixed"`. `null` en volantes. |
 | size       | object        | `{ width, height }` en píxeles (size del conector) |
 | matedId    | string / null | ID del acople M al que pertenece, o `null` si está libre |
 | notes      | array         | Histórico de notas (ver 3.1.1) |
 
-4.1.1. El campo `edgeSide` indica el borde del contenedor padre sobre el que se sitúa el conector. Los valores posibles son `"left"`, `"right"`, `"top"` o `"bottom"`. Desde la V1.7 es obligatorio para todos los conectores.
+4.1.1. `mountType` define la cinemática del conector:  
+ a. **Fijo (`"fixed"`)**: el conector está atornillado o soldado a su contenedor padre. Su posición se calcula a partir de `edgeSide` y `offset`. Al mover el contenedor, el conector se mueve con él.  
+ b. **Volante (`"flying"`)**: el conector es el extremo de un cable. No está fijado mecánicamente a su contenedor; su posición se calcula a partir del conector fijo al que está enchufado (su pareja en el M). Al mover el contenedor padre, el conector volante **no se desplaza** con él; sigue a su pareja fija. Si como resultado queda fuera de los límites de su contenedor, el sistema registra una advertencia en el futuro sistema de logs (ver 12.9), pero no bloquea la acción.
 
-4.1.2. Definición de `offset` según `edgeSide`:  
+4.1.2. Definición de `offset` (solo para `mountType: "fixed"`):  
  a. Para `"left"` o `"right"`: `offset` es la distancia desde el borde superior del contenedor padre hasta el borde superior del conector.  
  b. Para `"top"` o `"bottom"`: `offset` es la distancia desde el borde izquierdo del contenedor padre hasta el borde izquierdo del conector.
 
-4.1.3. Cálculo de la posición absoluta en runtime:
+4.1.3. Cálculo de la posición absoluta en runtime para conectores **fijos**:
 
 | `edgeSide` | `x_global` | `y_global` |
 |------------|------------|------------|
@@ -197,10 +189,17 @@ Los conectores son los puntos de conexión eléctrica. Cada uno tiene un género
 
 Donde `padre.width` y `padre.height` provienen del `size` del contenedor padre, y `conector.width` y `conector.height` del `size` del conector.
 
-4.1.4. `matedId` vincula el conector con el acople M que lo une a su pareja. Si el conector participa en un M, aquí se almacena el ID de dicho M.
+**Nota importante:** `padre.x` y `padre.y` en las fórmulas anteriores son las coordenadas absolutas del contenedor padre, calculadas recursivamente a partir de su `position` y las de sus ancestros. No deben confundirse con los valores `offsetX`/`offsetY` almacenados en el padre.
+
+4.1.4. Cálculo de la posición absoluta para conectores **volantes**:  
+ a. Se localiza el conector fijo con el que comparte `matedId`.  
+ b. Se aplica la orientación opuesta: si el fijo es `"right"`, el volante se coloca con su borde izquierdo tocando el borde derecho del fijo. Si el fijo es `"left"`, el volante se coloca con su borde derecho tocando el borde izquierdo del fijo. Análogo para `"top"` y `"bottom"`.  
+ c. La coordenada perpendicular se alinea para que los pines coincidan (ver 10.9).
+
+4.1.5. `matedId` vincula el conector con el acople M que lo une a su pareja. Si el conector participa en un M, aquí se almacena el ID de dicho M.
 
 **Memoria de diseño – 4.1**  
-La separación de `size` respecto del offset clarifica la estructura de datos. `edgeSide` es obligatorio desde la V1.7, eliminando el antiguo concepto de conector libre. La posición de un conector nunca depende de su pareja en un M; cada conector se posiciona exclusivamente por su relación geométrica con su contenedor padre. Desde la V1.8.2, se ha eliminado la terminología "anclado / libre" de las secciones normativas por ser redundante: todos los conectores son anclados a un borde.
+La introducción de `mountType` en V1.9 resuelve el conflicto cinemático detectado en la auditoría de la V1.8.2: un conector en el extremo de un cable no está fijado a su caja, por lo que no debe moverse con ella si su pareja está en otro contenedor. Esta distinción refleja fielmente la realidad física y elimina la necesidad de reglas temporales de herencia cinemática. Los conectores volantes no almacenan `offset`; su posición es siempre derivada de su pareja fija. La advertencia por quedar fuera del contenedor padre no bloquea la operación (el usuario puede luego agrandar la caja manualmente).
 
 #### 4.2 Género y validación
 
@@ -212,33 +211,34 @@ La separación de `size` respecto del offset clarifica la estructura de datos. `
 
 **Tabla 5 – Conectores del ejemplo**
 
-| ID   | Nombre       | Padre | Designator | Pines | Género | EdgeSide | Offset | Size (w, h) | matedId | Notes |
-|------|--------------|-------|------------|-------|--------|----------|--------|--------------|---------|-------|
-| C001 | Molex 2P     | T300  | J1         | 2     | male   | right    | 100    | 180, 115     | M001    | –     |
-| C002 | Molex 2P     | T200  | J2         | 2     | female | left     | 200    | 180, 115     | M001    | –     |
-| C003 | GX12         | T200  | J3         | 2     | female | right    | 740    | 180, 115     | M002    | –     |
-| C004 | GX12         | T100  | J4         | 2     | male   | left     | 850    | 180, 115     | M002    | –     |
-| C005 | GX12 4P      | T100  | J5         | 4     | male   | right    | 850    | 180, 115     | M003    | –     |
-| C006 | GX12 4P      | T201  | J6         | 4     | female | left     | 728    | 180, 115     | M003    | –     |
-| C007 | Molex 5P     | T201  | J7         | 5     | male   | left     | 188    | 180, 115     | M004    | –     |
-| C008 | Molex 5P     | T301  | J8         | 5     | female | right    | 71     | 180, 115     | M004    | –     |
-| C009 | Molex 2P     | T301  | J9         | 2     | female | left     | 251    | 180, 115     | null    | [{"date":"2026-07-12","user":"Leo","text":"Reserva para faro auxiliar"}] |
+| ID   | Nombre       | Padre | Designator | Pines | Género | MountType | EdgeSide | Offset | Size (w, h) | matedId | Notes |
+|------|--------------|-------|------------|-------|--------|-----------|----------|--------|--------------|---------|-------|
+| C001 | Molex 2P     | T300  | J1         | 2     | male   | fixed     | right    | 100    | 180, 115     | M001    | –     |
+| C002 | Molex 2P     | T200  | J2         | 2     | female | flying    | left     | null   | 180, 115     | M001    | –     |
+| C003 | GX12         | T200  | J3         | 2     | female | fixed     | right    | 740    | 180, 115     | M002    | –     |
+| C004 | GX12         | T100  | J4         | 2     | male   | flying    | left     | null   | 180, 115     | M002    | –     |
+| C005 | GX12 4P      | T100  | J5         | 4     | male   | flying    | right    | null   | 180, 115     | M003    | –     |
+| C006 | GX12 4P      | T201  | J6         | 4     | female | fixed     | left     | 728    | 180, 115     | M003    | –     |
+| C007 | Molex 5P     | T201  | J7         | 5     | male   | flying    | left     | null   | 180, 115     | M004    | –     |
+| C008 | Molex 5P     | T301  | J8         | 5     | female | fixed     | right    | 71     | 180, 115     | M004    | –     |
+| C009 | Molex 2P     | T301  | J9         | 2     | female | fixed     | left     | 251    | 180, 115     | null    | [{"date":"2026-07-12","user":"Leo","text":"Reserva para faro auxiliar"}] |
 
 **Memoria de diseño – 4.3**  
-Las orientaciones de C002 y C008 fueron corregidas en V1.8.1 para cumplir con la regla de enfrentamiento 10.9: C002 es `left` (enfrentado a C001 `right`) y C008 es `right` (enfrentado a C007 `left`).
+Los conectores C002, C004, C005 y C007 son volantes: son los extremos de los cables W001, W002, W002 y W003 respectivamente. No almacenan `offset`. Los conectores C001, C003, C006, C008 y C009 son fijos: están soldados o atornillados a sus placas o paneles. Las orientaciones cumplen la regla de enfrentamiento 10.9.
 
 #### 4.4 Posicionamiento de conectores
 
-4.4.1. Todo conector se sitúa completamente dentro del contenedor, con la cara de pines exactamente sobre el borde indicado por `edgeSide`.  
-4.4.2. Ejemplo: `edgeSide: "right"` → borde derecho del conector toca el borde derecho del contenedor.
+4.4.1. Conector fijo: completamente dentro del contenedor, con la cara de pines exactamente sobre el borde indicado por `edgeSide`.  
+4.4.2. Conector volante: su posición se calcula para quedar enfrentado a su pareja fija (ver 4.1.4). Puede quedar fuera de los límites de su contenedor padre; esto genera una advertencia en el futuro sistema de logs (12.9) pero no se bloquea.  
+4.4.3. Ejemplo: `edgeSide: "right"` en un fijo → borde derecho del conector toca el borde derecho del contenedor.
 
 #### 4.5 Movimiento de conectores
 
-4.5.1. Todos los conectores están en un borde. Pueden **deslizarse a lo largo del borde** (cambiando su `offset`) o **cambiarse a otro borde** del mismo contenedor si el cursor supera 30 px de distancia perpendicular al borde actual.  
-4.5.2. **Propagación rígida del movimiento:**  
- 4.5.2.1. Solo los conectores unidos mediante un **M** se mueven solidariamente (todos los M existentes se consideran acoples activos).  
- 4.5.2.2. Al arrastrar un conector, se mueve también el otro extremo si comparten el mismo M.  
- 4.5.2.3. Los conectores unidos solo por wires no se arrastran entre sí; el cable se redibuja.
+4.5.1. **Conectores fijos**: pueden **deslizarse a lo largo del borde** (cambiando su `offset`) o **cambiarse a otro borde** del mismo contenedor si el cursor supera 30 px de distancia perpendicular al borde actual.  
+4.5.2. **Conectores volantes**: no pueden arrastrarse directamente. Su posición se actualiza automáticamente al mover el conector fijo al que están enchufados.  
+4.5.3. **Propagación rígida del movimiento:**  
+ 4.5.3.1. Los conectores unidos mediante un **M** se mueven solidariamente. Al mover un conector fijo, el volante se reposiciona para mantener el acople.  
+ 4.5.3.2. Los conectores unidos solo por wires no se arrastran entre sí; el cable se redibuja.
 
 ---
 
@@ -305,9 +305,10 @@ Define una unión macho‑hembra entre dos conectores. Unión rígida: los conec
 #### 6.2 Validaciones
 
 6.2.1. Los dos conectores deben tener géneros opuestos.  
-6.2.2. Si un conector tiene `matedId`, ese ID debe coincidir con el M que lo incluye.  
+6.2.2. Si un conector tiene `matedId`, ese ID debe coincidir con el M que lo incluye. Recíprocamente, si un conector aparece en el `from` o `to` de un M, debe tener ese `matedId`. El sistema rechazará cualquier configuración que no cumpla esta correspondencia bidireccional.  
 6.2.3. El sistema verificará la coherencia al cargar: cada M debe ser referenciado por sus dos conectores.  
-6.2.4. **Mapeo de pines:**  
+6.2.4. **Composición del M:** un M siempre conecta un conector fijo (`mountType: "fixed"`) con uno volante (`mountType: "flying"`). No se permiten M entre dos fijos ni entre dos volantes.  
+6.2.5. **Mapeo de pines:**  
  a. Si `pinMapping` es `"direct"`, el acople respeta el orden natural: pin 1 con pin 1, pin 2 con pin 2, etc. El sistema validará que los pines declarados en `from` y `to` cumplan esta correspondencia.  
  b. Si `pinMapping` es `"reversed"`, el orden se invierte: pin 1 con pin N, pin 2 con N‑1, etc., siendo N el número de pines del conector más pequeño.  
  c. Si `pinMapping` es `null` o no se define, no se aplica esta validación automática.  
@@ -328,7 +329,7 @@ Define una unión macho‑hembra entre dos conectores. Unión rígida: los conec
 
 6.4.1. Sin línea; conectores enfrentados borde con borde.  
 6.4.2. La unión rígida se manifiesta en el movimiento solidario.  
-6.4.3. **Bloque rígido visual**: dado que un acople M representa una unión física real e inseparable, en la vista gráfica ambos conectores deben aparecer estrictamente enfrentados y sin separación. El usuario no puede separarlos arrastrándolos en modo edición; cualquier intento de mover uno arrastrará al otro manteniendo la unión exacta. Si al cargar o editar datos la posición matemática de ambos conectores deja un espacio entre ellos, el sistema emitirá la advertencia correspondiente (ver 10.9).
+6.4.3. **Bloque rígido visual**: dado que un acople M representa una unión física real e inseparable, en la vista gráfica ambos conectores deben aparecer estrictamente enfrentados y sin separación. El usuario no puede separarlos arrastrándolos en modo edición; el volante sigue siempre al fijo. Si al cargar o editar datos la posición matemática de ambos conectores deja un espacio entre ellos, el sistema emitirá la advertencia correspondiente (ver 10.9).
 
 ---
 
@@ -398,17 +399,17 @@ Un net es una señal eléctrica declarada una vez. Wires y mateds lo referencian
 T100 (Moto)
 ├── T200 (Caja 1)
 │   ├── T300 (PCB 1)
-│   │   └── C001 (J1, male, right)
-│   ├── C002 (J2, female, left)
-│   └── C003 (J3, female, right)
+│   │   └── C001 (J1, male, fixed, right)
+│   ├── C002 (J2, female, flying, left)
+│   └── C003 (J3, female, fixed, right)
 ├── T201 (Caja 2)
 │   ├── T301 (PCB 2)
-│   │   ├── C008 (J8, female, right)
-│   │   └── C009 (J9, female, left)
-│   ├── C006 (J6, female, left)
-│   └── C007 (J7, male, left)
-├── C004 (J4, male, left)
-└── C005 (J5, male, right)
+│   │   ├── C008 (J8, female, fixed, right)
+│   │   └── C009 (J9, female, fixed, left)
+│   ├── C006 (J6, female, fixed, left)
+│   └── C007 (J7, male, flying, left)
+├── C004 (J4, male, flying, left)
+└── C005 (J5, male, flying, right)
 ```
 
 #### 9.2 Ubicación efectiva de los wires
@@ -422,14 +423,15 @@ T100 (Moto)
 ### 10. REGLAS DE CONSISTENCIA Y VALIDACIONES
 
 10.1. **Género en M:** géneros opuestos obligatorios.  
-10.2. **Integridad de matedId:** si un conector tiene `matedId`, ese M debe existir, contener al conector, y ambos conectores del M deben tener el mismo `matedId`.  
-10.3. **Obligatoriedad de edgeSide:** todo conector debe tener `edgeSide` definido (`"left"`, `"right"`, `"top"`, `"bottom"`). No se admite valor `null`.  
-10.4. **Pines válidos:** los pines referenciados deben existir en los conectores.  
-10.5. **Longitud de wire:** `length` es informativo, sin restricción.  
-10.6. **Compatibilidad jerárquica:** dos conectores pueden conectarse si comparten un ancestro contenedor común.  
-10.7. **Continuidad de nets:** el grafo del net debe ser conexo; se detectan conflictos de señales.  
-10.8. **Mapeo de pines (opcional):** si `pinMapping` es `"direct"` o `"reversed"`, los pines `from` y `to` deben cumplir el orden declarado. Si los conectores tienen distinto número de pines, se emitirá una advertencia informativa sobre los pines no asignados.  
-10.9. **Enfrentamiento de pines en M:** los dos conectores que comparten un `matedId` deben tener orientaciones opuestas. Un conector con `edgeSide: "right"` solo puede acoplarse válidamente con otro que tenga `edgeSide: "left"` (y viceversa). Un conector con `edgeSide: "top"` solo puede acoplarse con otro que tenga `edgeSide: "bottom"` (y viceversa). Cualquier otra combinación genera una advertencia de diseño indicando que las caras de pines no están alineadas.
+10.2. **Integridad de matedId:** correspondencia bidireccional entre `matedId` y el M.  
+10.3. **Obligatoriedad de edgeSide y mountType:** todo conector debe tener `edgeSide` y `mountType` definidos.  
+10.4. **Composición de M:** un M conecta un fijo con un volante.  
+10.5. **Pines válidos:** los pines referenciados deben existir en los conectores.  
+10.6. **Longitud de wire:** `length` es informativo, sin restricción.  
+10.7. **Compatibilidad jerárquica:** dos conectores pueden conectarse si comparten un ancestro contenedor común.  
+10.8. **Continuidad de nets:** el grafo del net debe ser conexo; se detectan conflictos de señales.  
+10.9. **Mapeo de pines (opcional):** si `pinMapping` es `"direct"` o `"reversed"`, los pines `from` y `to` deben cumplir el orden declarado. Si los conectores tienen distinto número de pines, se emitirá una advertencia informativa sobre los pines no asignados.  
+10.10. **Enfrentamiento de pines en M:** los dos conectores que comparten un `matedId` deben tener orientaciones opuestas. Adicionalmente, el sistema verificará que las posiciones estén alineadas (diferencia ≤ 2 px en la coordenada perpendicular al borde). Si se supera este umbral, se emitirá una advertencia de desalineación.
 
 ---
 
@@ -437,14 +439,14 @@ T100 (Moto)
 
 11.1. **Cables fijos:** líneas azules curvas, siempre visibles.  
 11.2. **Acoples M:** sin línea; conectores enfrentados y bloqueados como un único conjunto rígido.  
-11.3. **Conectores:** dentro del contenedor, pines sobre el borde.  
+11.3. **Conectores:** dentro del contenedor (fijos) o siguiendo a su pareja (volantes); pines sobre el borde.  
 11.4. **Panel de configuración y modo edición:**  
  11.4.1. Existe un botón de configuración (ícono de engranaje) en la barra superior.  
  11.4.2. Al pulsarlo se despliega un panel que contiene, entre otras opciones, el control de **modo edición** y la **opción de rendimiento** para el recálculo de posiciones (continuo o al finalizar el movimiento).  
  11.4.3. El modo edición se activa/desactiva con un interruptor en ese panel, o mediante el atajo **Ctrl+Shift+E**.  
  11.4.4. Por defecto, el sistema arranca en modo solo lectura.  
  11.4.5. En modo edición se habilitan las interacciones de arrastre y redimensionamiento.  
-11.5. **Redimensionamiento:** handles en bordes y esquinas; los conectores permanecen fijos respecto a la esquina de referencia (ver 3.3.2.3). Los handles en bordes con conectores se sitúan en el extremo opuesto (ver 3.3.2.4).  
+11.5. **Redimensionamiento:** handle exclusivamente en la esquina inferior derecha. Los conectores fijos mantienen su offset respecto a la esquina superior izquierda. Los volantes no se ven afectados.  
 11.6. **Resaltado de nets:** al seleccionar un net, sus wires cambian de color.  
 11.7. **Filtros de vista:** la ocultación de conectores o subsistemas se realiza mediante filtros dinámicos en la interfaz. El estado de los filtros se guarda automáticamente en `localStorage` del navegador vinculado al identificador del proyecto, restaurándose al recargar la página. Existe un control para restablecer todos los filtros.  
 11.8. **Panel de propiedades:** al hacer clic en cualquier elemento del lienzo (conector, contenedor, cable, M, N) se despliega un panel lateral con todos sus atributos, permitiendo su consulta en modo solo lectura y su edición en modo edición. Este panel está sincronizado con la vista de tablas: cualquier cambio realizado en él se refleja en las tablas y viceversa.
@@ -461,7 +463,8 @@ T100 (Moto)
 12.6. Puntos de chasis como nodos de tierra implícitos.  
 12.7. Integración con sistemas Kanban para seguimiento de tareas basadas en notas.  
 12.8. En caso de requerirse, reintroducción de estados en M (planificado, desconectado, obsoleto) con un modelo más robusto.  
-12.9. **Sistema de registro de eventos (logs):** para visualizar incidencias como conectores no enfrentados en un M, advertencias de validación y acciones del usuario, facilitando el diagnóstico y la auditoría.
+12.9. **Sistema de registro de eventos (logs):** para visualizar incidencias como conectores no enfrentados en un M, conectores volantes fuera de su contenedor padre, advertencias de validación y acciones del usuario, facilitando el diagnóstico y la auditoría.  
+12.10. Revisión de los errores #2, #3 y #4 de la auditoría de V1.8.2 (notación de coordenadas absolutas, validación inversa de matedId ya corregida, alineación de offsets ya corregida).
 
 ---
 
@@ -487,4 +490,12 @@ T100 (Moto)
 
 **Versión 1.8.1** – Correcciones menores: eliminada la referencia a migración automática, unificado el término "size", corregido el ejemplo de conectores (C002 `left`, C008 `right`) para cumplir la regla de enfrentamiento, eliminado el punto obsoleto sobre componentes no anclados.
 
-**Versión 1.8.2** – Limpieza terminológica: eliminada toda referencia a "conectores anclados" como distinción (todos los conectores lo son desde la V1.7), eliminada la definición de "Libre (free)" en 4.1.1, simplificado el diagrama jerárquico (9.1) eliminando la palabra "anclado". Las memorias de diseño conservan la trazabilidad del cambio.
+**Versión 1.8.2** – Limpieza terminológica: eliminada toda referencia a "conectores anclados", eliminada la definición de "Libre (free)", simplificado el diagrama jerárquico.
+
+**Versión 1.9** – Resolución del conflicto cinemático y simplificación del redimensionamiento:  
+- Introducción de `mountType` (`"fixed"` / `"flying"`) para distinguir conectores atornillados de extremos de cable.  
+- Los conectores volantes no almacenan `offset`; su posición se deriva del fijo al que están enchufados.  
+- Redimensionamiento limitado a la esquina inferior derecha.  
+- Advertencia por conectores volantes fuera de su contenedor (futuro sistema de logs).  
+- Corrección de la validación de `matedId` (bidireccional) y de la alineación de offsets en 10.10.  
+- Nota aclaratoria sobre coordenadas absolutas en las fórmulas de 4.1.3.
