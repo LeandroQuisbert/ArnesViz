@@ -1,4 +1,4 @@
-# VERSIÓN 2.3 – DOCUMENTACIÓN DE ARQUITECTURA DEL VISUALIZADOR DE ARNÉS
+# VERSIÓN 2.4 – DOCUMENTACIÓN DE ARQUITECTURA DEL VISUALIZADOR DE ARNÉS
 
 ---
 
@@ -35,6 +35,8 @@
 
 1.3.9. A partir de la V2.3, se incorporan: **principio de inferencia desde catálogos** (autocompletado automático), **catálogo `colorPalette`** para renderizado SVG, **schema específico por entidad**, **simplificación del catálogo `people`**, **eliminación de `shield` como tipo de señal**, **límite de profundidad jerárquica (4 niveles) con detección de ciclos**, **validación 100% custom** (sin librerías externas), y **arquitectura single-file** (`index.html` + `db.json`).
 
+1.3.10. A partir de la V2.4, se elimina completamente el modo claro (light mode), manteniendo únicamente el modo oscuro (dark mode) con una paleta de colores optimizada para evitar conflictos visuales con los colores estándar de cables eléctricos.
+
 ### 1.4 Flujo de trabajo del técnico
 
 1.4.1. La interfaz ofrece dos vistas complementarias y sincronizadas: el **lienzo gráfico 2D (SVG)** y las **tablas de datos**. El usuario puede alternar entre ambas o trabajar con las dos simultáneamente. Cualquier cambio realizado en una vista se propaga instantáneamente a la otra.
@@ -50,7 +52,7 @@
 
 Los elementos que no coinciden se atenúan en la vista visual (opacidad reducida) y se ocultan en la vista tabla. El estado de los filtros se conserva en `localStorage`.
 
-1.4.4. **Persistencia del contexto**: los filtros aplicados, la posición del lienzo, el nivel de zoom y el tema se almacenan en `localStorage` del navegador para que el técnico recupere exactamente la vista en la que estaba trabajando.
+1.4.4. **Persistencia del contexto**: los filtros aplicados, la posición del lienzo y el nivel de zoom se almacenan en `localStorage` del navegador para que el técnico recupere exactamente la vista en la que estaba trabajando.
 
 ### 1.5 Principio de Inferencia desde Catálogos (V2.3)
 
@@ -154,7 +156,7 @@ db.json
 
 > **Nota histórica (V2.3):** En V2.2, el campo `revision` fue renombrado a `version`. La funcionalidad es idéntica: contador de guardados que incrementa en 1.
 
-2.7.7. **No existe `metadata.uiSettings`** (eliminado en V2.1). Todas las preferencias de interfaz (tema, zoom, posición del lienzo, filtros, vista activa, estado de expansión de contenedores) se almacenan en `localStorage` del navegador. Ver sección 11.9.
+2.7.7. **No existe `metadata.uiSettings`** (eliminado en V2.1). Todas las preferencias de interfaz (zoom, posición del lienzo, filtros, vista activa, estado de expansión de contenedores) se almacenan en `localStorage` del navegador. Ver sección 11.9.
 
 2.7.8. **Arquitectura single-file (V2.3):** La aplicación se entrega como un único archivo **`index.html`** autocontenido (HTML + CSS embebido en `<style>` + JavaScript embebido en `<script>`) más el archivo **`db.json`** externo con los datos del proyecto. No se requieren bundlers, frameworks ni servidores backend. El despliegue en GitHub Pages consiste en subir ambos archivos al repositorio.
 
@@ -965,7 +967,6 @@ T100 (Moto) [owner: leo]
 - Selector de columnas visibles (para la vista tabla).
 - Opciones de zoom (entrada numérica + botones +/−).
 - Toggle para mostrar/ocultar nombres de conectores, designadores, longitud de cables, etc.
-- Selector de tema (Oscuro / Claro). **Esta preferencia se guarda en `localStorage`, no en el JSON.**
 
 **c) Gestión de Datos:**
 - Botón **Importar JSON** (atajo `Ctrl+O`).
@@ -975,7 +976,7 @@ T100 (Moto) [owner: leo]
 **d) Gestión de Catálogos (solo lectura en V2.2):**
 - Lista de personas (`catalogs.people`): ver.
 - Lista de secciones (`catalogs.sections`): ver.
-- Lista de modelos de conectores (`catalogs.connectorModels`): ver.
+- Lista de modelos de conectores (`connectorModels`): ver.
 - Lista de tipos de cable (`catalogs.wireTypes`): ver.
 - Lista de nets (`catalogs.nets`): ver.
 - Lista de colores (`catalogs.colorPalette`): ver.
@@ -995,7 +996,7 @@ T100 (Moto) [owner: leo]
 1. Al importar un archivo JSON, el sistema verifica la presencia de campos obsoletos: `data.nets`, `metadata.uiSettings`, `signalTypeRef`, `sectionRef` en conectores, `revision` en metadata, `shield` en signalType de nets.
 2. Si se detecta alguno de estos campos, se **rechaza la importación** y se muestra un modal:
    - Título: "Formato no compatible"
-   - Mensaje: "Este archivo parece ser de una versión anterior. No se puede importar directamente. Actualice el archivo manualmente al formato V2.3."
+   - Mensaje: "Este archivo parece ser de una versión anterior. No se puede importar directamente. Actualice el archivo manualmente al formato V2.4."
    - Opciones: **[Entendido]**
 3. No se intenta migración automática.
 
@@ -1048,33 +1049,30 @@ T100 (Moto) [owner: leo]
 | `Esc`          | Cerrar panel lateral / Deseleccionar todo |
 | `F`            | Activar/desactivar filtro de búsqueda     |
 
-### 11.8 Estética Visual
+### 11.8 Estética Visual (V2.4)
 
-11.8.1. **Tema Oscuro (por defecto):**
-- Fondo general: `#000000` (negro puro).
-- Tarjetas / paneles: `#121212` a `#1e1e1e`.
-- Bordes sutiles: `#2a2a2a`.
+11.8.1. **Modo Oscuro (único tema disponible):**
+- Fondo general: `#0a0a0f` (negro muy oscuro con tinte azulado).
+- Tarjetas / paneles: `#141420` a `#1e1e2e` (gris muy oscuro con tinte violeta/azul).
+- Bordes sutiles: `#2a2a3a`.
 - Texto principal: `#f0f0f0` (blanco suave).
 - Texto secundario: `#9ca3af`.
-- Acentos: **Amarillo flúor** (`#ffff00`, `#ffcc00`) sobre negro/gris oscuro.
+- Acentos primarios: **Violeta oscuro** (`#6366f1`, `#4f46e5`) para elementos interactivos y selecciones.
+- Acentos secundarios: **Amarillo flúor** (`#fbbf24`) o **Dorado flúor** (`#d97706`) para highlights y elementos destacados.
 - Error: `#ef4444` (rojo).
 - Advertencia: `#ffcc00` (amarillo).
 - Info: `#3b82f6` (azul).
+
+> **Nota (V2.4):** La paleta de colores de la interfaz ha sido diseñada para evitar conflictos visuales con los colores estándar de cables eléctricos (negro, rojo, azul, verde, amarillo, blanco, marrón, naranja). Los colores violeta oscuro y dorado flúor rara vez aparecen en cables reales, lo que permite distinguir claramente los elementos de la UI de los elementos del arnés.
 
 11.8.2. **Efecto Neumórfico sutil:**
 - Sombras dobles sobre elementos elevados: `box-shadow: 6px 6px 12px rgba(0,0,0,0.6), -6px -6px 12px rgba(40,50,80,0.15);`
 - Elementos hundidos (inputs): `box-shadow: inset 4px 4px 8px rgba(0,0,0,0.5), inset -4px -4px 8px rgba(40,50,80,0.1);`
 - Bordes redondeados: `border-radius: 1rem` a `1.5rem`.
 
-11.8.3. **Tema Claro (opcional, menor prioridad):**
-- Fondo: `#ffffff`.
-- Tarjetas: `#f5f5f5`.
-- Acentos: Azul oscuro (`#1e3a8a`) o verde (`#059669`).
-- Texto: `#000000` / `#333333`.
+11.8.3. **Transiciones:** `transition: all 0.25s ease` en hover, selección, apertura/cierre de paneles.
 
-11.8.4. **Transiciones:** `transition: all 0.25s ease` en hover, selección, apertura/cierre de paneles.
-
-11.8.5. **Feedback visual:** Hover sobre elementos interactivos (cambio sutil de brillo/sombra). Selección activa (borde amarillo flúor + glow). Elemento en arrastre (opacidad reducida + sombra más profunda).
+11.8.4. **Feedback visual:** Hover sobre elementos interactivos (cambio sutil de brillo/sombra). Selección activa (borde amarillo flúor + glow). Elemento en arrastre (opacidad reducida + sombra más profunda).
 
 ### 11.9 Persistencia: JSON vs localStorage (V2.1)
 
@@ -1083,12 +1081,11 @@ T100 (Moto) [owner: leo]
 | Almacenamiento | Contenido | Persistencia |
 |----------------|-----------|--------------|
 | **`db.json`** (archivo) | Datos del proyecto: `metadata` (projectInfo, schema, catalogs, savedBy, lastSave, version) y `data` (containers, connectors, wires, mates). | Se guarda al exportar. Se versiona en Git. |
-| **`localStorage`** (navegador) | Preferencias del usuario: tema, zoom actual, posición del lienzo (pan), filtros aplicados, última vista usada (tabla/visual), estado de expansión de contenedores. | Persiste entre sesiones del mismo navegador. No se exporta. |
+| **`localStorage`** (navegador) | Preferencias del usuario: zoom actual, posición del lienzo (pan), filtros aplicados, última vista usada (tabla/visual), estado de expansión de contenedores. | Persiste entre sesiones del mismo navegador. No se exporta. |
 
 11.9.2. **No existe `metadata.uiSettings`** en el JSON. Todas las preferencias de UI son locales del usuario y se guardan en `localStorage`.
 
 11.9.3. **Claves de localStorage sugeridas:**
-- `arnesviz.theme`: `"dark"` | `"light"`
 - `arnesviz.zoom`: number
 - `arnesviz.pan`: `{ x, y }`
 - `arnesviz.filters`: objeto con estado de filtros
@@ -1199,9 +1196,9 @@ T100 (Moto) [owner: leo]
 12.10. Exportación a formatos adicionales (PDF, imagen SVG, BOM).
 12.11. Integración con herramientas CAD (KiCad, Altium) para importación de netlists.
 12.12. Sincronización en tiempo real multiusuario (colaboración).
-12.13. **Edición completa de catálogos desde la UI (V2.2):** En V2.2/V2.3, los catálogos son de solo lectura en la interfaz. La edición se realiza directamente en el archivo JSON. En una versión futura, se implementará una UI completa para añadir, editar y eliminar entradas de catálogos (people, sections, connectorModels, wireTypes, nets, colorPalette) con validación de referencias y protección contra eliminación de elementos en uso. Esto incluye la posibilidad de añadir o quitar valores de `signalType` y personalizar la paleta de colores.
+12.13. **Edición completa de catálogos desde la UI (V2.2):** En V2.2/V2.3/V2.4, los catálogos son de solo lectura en la interfaz. La edición se realiza directamente en el archivo JSON. En una versión futura, se implementará una UI completa para añadir, editar y eliminar entradas de catálogos (people, sections, connectorModels, wireTypes, nets, colorPalette) con validación de referencias y protección contra eliminación de elementos en uso. Esto incluye la posibilidad de añadir o quitar valores de `signalType` y personalizar la paleta de colores.
 12.14. **Migración a IndexedDB (V2.2):** El autosave y las preferencias se guardan en `localStorage`, que tiene un límite de ~5-10 MB. Para proyectos muy grandes, se sugiere migrar a `IndexedDB` (límite ~50 MB+) en una versión futura.
-12.15. **Herramienta de migración de archivos (V2.2):** Actualmente, los archivos de versiones anteriores (V1.9.1, V2.0, V2.1, V2.2) son rechazados al importar. En una versión futura, se podría implementar una herramienta de migración automática que convierta archivos antiguos al formato vigente.
+12.15. **Herramienta de migración de archivos (V2.2):** Actualmente, los archivos de versiones anteriores (V1.9.1, V2.0, V2.1, V2.2, V2.3) son rechazados al importar. En una versión futura, se podría implementar una herramienta de migración automática que convierta archivos antiguos al formato vigente.
 
 > **Nota:** El antiguo punto 12.9 de V1.9.1 (Sistema de registro de eventos / logs) fue promovido a implementación activa en la sección 10.13 de V2.0.
 
@@ -1243,11 +1240,13 @@ T100 (Moto) [owner: leo]
 
 **Versión 2.3** – Principio de inferencia desde catálogos (autocompletado automático, sección 1.5), catálogo `colorPalette` para renderizado SVG, schema específico por entidad (required/recommended por tipo), simplificación del catálogo `people` (solo nombre), eliminación de `owners` en `sections`, eliminación de `shield` de `signalType`, `gaugeUnit` opcional con inferencia desde catálogo (default `"mm2"`), `pinMapping` autocompletado como `"direct"` en UI (solo para mates nuevos), limitación de M documentada (dos conectores por acople), `offset` ignorado en volantes (sin advertencia), límite de profundidad jerárquica de 4 niveles con detección de ciclos (regla 10.16), validación 100% custom (sin AJV ni librerías externas), arquitectura single-file (`index.html` + `db.json`), mecánica de pan con botón medio del mouse, fórmula de curvas Bézier documentada, distribución de pines documentada, orden de renderizado (Z-index) documentado, creación/eliminación/duplicación de entidades documentada, tabla nativa HTML documentada, responsive con panel overlay, ejemplo base restaurado (todos los M/W comparten net `GND`), correcciones de referencias cruzadas (3.3.1.3, 4.1.1.b, 4.4.2, 10.13.3), nota histórica sobre renombramiento revision→version, color por defecto cambiado a `"black"`.
 
+**Versión 2.4** – Eliminación completa del modo claro (light mode), manteniendo únicamente el modo oscuro (dark mode). Nueva paleta de colores optimizada para evitar conflictos visuales con colores estándar de cables eléctricos: fondo `#0a0a0f`, paneles `#141420`-`#1e1e2e`, acentos violeta oscuro (`#6366f1`, `#4f46e5`) y amarillo/dorado flúor (`#fbbf24`, `#d97706`). Eliminación del selector de tema en el panel de configuración (sección 11.5.2). Eliminación de `arnesviz.theme` de las claves de localStorage (sección 11.9.3). Documentación actualizada en sección 11.8 con nota explicativa sobre la elección de colores.
+
 ---
 
-## APÉNDICE A – JSON DE EJEMPLO COMPLETO (V2.3)
+## APÉNDICE A – JSON DE EJEMPLO COMPLETO (V2.4)
 
-A continuación se muestra un archivo `db.json` completo y válido que implementa todos los conceptos de esta documentación. Representa fielmente los datos del ejemplo de la V1.9.1 (5 contenedores, 9 conectores, 3 wires, 4 mates) enriquecidos con catálogos, schema y las mejoras de V2.3.
+A continuación se muestra un archivo `db.json` completo y válido que implementa todos los conceptos de esta documentación. Representa fielmente los datos del ejemplo de la V1.9.1 (5 contenedores, 9 conectores, 3 wires, 4 mates) enriquecidos con catálogos, schema y las mejoras de V2.4.
 
 > **Nota:** El valor `version: 5` es ilustrativo y representa un proyecto que ha sido guardado 5 veces.
 
@@ -1749,36 +1748,23 @@ A continuación se muestra un archivo `db.json` completo y válido que implement
 
 ---
 
-## APÉNDICE B – RESUMEN DE CAMBIOS V2.2 → V2.3
+## APÉNDICE B – RESUMEN DE CAMBIOS V2.3 → V2.4
 
-| Cambio | V2.2 | V2.3 |
+| Cambio | V2.3 | V2.4 |
 |--------|------|------|
-| **Principio de inferencia** | No existía | **Nueva sección 1.5**: autocompletado desde catálogos |
-| **Catálogo `people`** | name, alias, role, notes | **Solo `name`** |
-| **Catálogo `sections`** | name, owners | **Solo `name`** (owners eliminado) |
-| **`signalType` en nets** | power, ground, data, communication, analog, shield | **shield eliminado**. Lista extensible |
-| **Catálogo `colorPalette`** | No existía | **Nuevo**: mapeo de nombres a hexadecimales |
-| **Schema** | Genérico (`required: ["id", "type"]`) | **Específico por entidad** (containers, connectors, wires, mates) |
-| **`gaugeUnit` en wires** | Recomendado, default "mm2" | **Opcional**, inferido del catálogo si wireTypeRef existe, default "mm2" |
-| **`color` en wires** | Defecto "blue" | **Defecto "black"**, autocompletado desde net |
-| **`pinMapping` en mates** | null o no definido | **Autocompletado como "direct"** en UI (solo mates nuevos). Mates existentes mantienen su valor |
-| **Limitación de M** | No documentada | **Documentada**: dos conectores por acople. Casos atípicos con dos M separados |
-| **`offset` en volantes** | null (no especificado comportamiento con valor) | **Ignorado** sin advertencia |
-| **Profundidad jerárquica** | Sin límite | **Máximo 4 niveles** + detección de ciclos |
-| **Validación** | AJV mencionado | **100% custom** (sin librerías externas) |
-| **Arquitectura** | No especificada | **Single file**: `index.html` + `db.json` |
-| **Pan en SVG** | No especificado | **Botón medio del mouse** (o Shift + click izquierdo) |
-| **Curvas Bézier** | No especificado | **Fórmula documentada** (puntos de control según edgeSide) |
-| **Distribución de pines** | No especificado | **Documentada**: vertical/horizontal, espaciado, pin 1 arriba/izquierda |
-| **Z-index** | No especificado | **Orden documentado**: fondo → contenedores → conectores → cables → pines → overlay |
-| **Crear/Eliminar/Duplicar** | No especificado | **Documentado**: botones en tabla y panel details |
-| **Tabla de datos** | No especificado | **HTML nativa**, edición inline, resaltado de errores |
-| **Responsive** | No especificado | **Panel overlay**, 100% ancho en móvil |
-| **Ejemplo base** | Nets variadas (GND, +12V, +5V) | **Restaurado**: todos comparten `GND` |
-| **Alineación pin 1** | Sin nota sobre orientación | **Nota añadida**: asume misma orientación de numeración |
-| **Referencias cruzadas** | Algunas imprecisas | **Corregidas**: 3.3.1.3, 4.1.1.b, 4.4.2, 10.13.3 |
-| **Nota histórica version** | No existía | **Añadida** en 2.7.6: revision→version en V2.2 |
+| **Modo claro (light mode)** | Disponible como opción secundaria | **Eliminado completamente** |
+| **Modo oscuro** | Tema por defecto | **Único tema disponible** |
+| **Paleta de colores UI** | Fondo #000000, paneles #121212-#1e1e1e, acentos #ffff00/#ffcc00 | Fondo #0a0a0f, paneles #141420-#1e1e2e, acentos violeta #6366f1/#4f46e5 y dorado #fbbf24/#d97706 |
+| **Selector de tema** | Presente en panel de configuración (11.5.2) | **Eliminado** del panel de configuración |
+| **arnesviz.theme** | Clave de localStorage para preferencia de tema | **Eliminado** de las claves de localStorage (11.9.3) |
+| **Documentación estética** | Sección 11.8 con dos temas (oscuro y claro) | Sección 11.8 solo con modo oscuro + nota explicativa sobre elección de colores |
+| **Persistencia** | Tema guardado en localStorage | Tema fijo (oscuro), sin persistencia necesaria |
+| **Detección incompatibles** | Mensaje menciona "formato V2.3" | Mensaje actualizado a "formato V2.4" (11.5.4) |
+| **Notas futuras** | Menciona V2.2/V2.3 | Actualizado a V2.2/V2.3/V2.4 (12.13) |
+| **Ejemplo JSON** | Sin cambios estructurales | Sin cambios (mismo db.json) |
+
+**Razón del cambio (V2.4):** La paleta de colores anterior (amarillo flúor #ffff00) podía generar confusión visual con cables de color amarillo en el arnés. La nueva paleta utiliza violeta oscuro y dorado flúor, colores que rara vez aparecen en cables eléctricos estándar, permitiendo una distinción clara entre elementos de la interfaz y elementos del arnés.
 
 ---
 
-**FIN DE LA DOCUMENTACIÓN – VERSIÓN 2.3**
+**FIN DE LA DOCUMENTACIÓN – VERSIÓN 2.4**
