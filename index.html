@@ -1,1 +1,416 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ArnesViz</title>
+    <style>
+        /* 11.8.1 Dark Mode Colors & 11.8.2 Neumorphic Effects */
+        :root {
+            --bg-primary: #0a0a0f;
+            --panel-bg: #141420;
+            --panel-border: #2a2a3a;
+            --text-main: #f0f0f0;
+            --text-secondary: #9ca3af;
+            --accent-primary: #6366f1;
+            --accent-primary-dark: #4f46e5;
+            --accent-secondary: #fbbf24;
+            --accent-glow: #d97706; /* Gold for highlights */
+            --error: #ef4444;
+            --warning: #ffcc00;
+            --info: #3b82f6;
+            --neumorph-light: rgba(255, 255, 255, 0.05);
+            --neumorph-dark: rgba(0, 0, 0, 0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-main);
+            overflow: hidden; /* Prevent default scroll on main body */
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header Styles (11.2) */
+        header {
+            background-color: var(--panel-bg);
+            color: var(--text-main);
+            padding: 0.75rem 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--panel-border);
+            min-height: 50px; /* Minimum fixed height */
+            box-shadow: 0 2px 4px var(--neumorph-dark); /* Basic neumorphism */
+        }
+
+        .header-left, .header-center, .header-right {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .header-left span:first-child { /* App name */
+            font-weight: bold;
+            color: var(--accent-secondary);
+        }
+
+        .view-tabs {
+            display: flex;
+            background-color: var(--neumorph-light);
+            border-radius: 8px;
+            padding: 0.25rem;
+        }
+
+        .view-tab {
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: background-color 0.2s;
+        }
+
+        .view-tab.active {
+            background-color: var(--accent-primary);
+        }
+
+        .btn-edit-mode, .btn-config {
+            background: none;
+            border: 1px solid var(--panel-border);
+            color: var(--text-main);
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-edit-mode:hover, .btn-config:hover {
+            background-color: var(--neumorph-light);
+            box-shadow: inset 2px 2px 4px var(--neumorph-dark), 2px 2px 4px var(--neumorph-light);
+        }
+
+        .btn-edit-mode.active {
+            background-color: var(--accent-primary);
+        }
+
+        /* Work Area */
+        .work-area {
+            flex: 1;
+            display: flex;
+            overflow: hidden; /* Contain scroll inside visual/table areas later */
+            position: relative; /* For overlay positioning */
+        }
+
+        #svg-container, #table-container { /* Placeholders for now */
+             width: 100%;
+             height: 100%;
+             overflow: auto;
+             background-color: #11111b; /* Slightly different shade for contrast */
+             display: flex;
+             justify-content: center;
+             align-items: center;
+         }
+
+         #table-container { display: none; } /* Initially show SVG */
+
+
+        /* Sidebar Styles (11.13) */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            right: -400px; /* Hidden initially */
+            width: 380px; /* Fixed width as per cheatsheet */
+            height: 100vh;
+            background-color: var(--panel-bg);
+            border-left: 1px solid var(--panel-border);
+            box-shadow: -2px 0 8px var(--neumorph-dark);
+            z-index: 1000;
+            transition: right 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* For internal scrolling */
+        }
+
+        .sidebar.open {
+            right: 0;
+        }
+
+        .sidebar-header {
+            padding: 1rem;
+            border-bottom: 1px solid var(--panel-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sidebar-title {
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+
+        .btn-close-sidebar {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .sidebar-content {
+            flex: 1;
+            padding: 1rem;
+            overflow-y: auto;
+        }
+
+        /* Log Panel Placeholder */
+        .log-panel {
+            height: 200px; /* Initial height */
+            background-color: var(--panel-bg);
+            border-top: 1px solid var(--panel-border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: transform 0.3s ease;
+            transform: translateY(0); /* Visible initially */
+        }
+
+        .log-panel.collapsed {
+            transform: translateY(100%);
+        }
+
+        .log-header {
+            padding: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--panel-border);
+        }
+
+        .log-controls {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .log-btn {
+            background-color: var(--neumorph-light);
+            border: 1px solid var(--panel-border);
+            color: var(--text-main);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .log-content {
+            flex: 1;
+            padding: 0.5rem;
+            font-family: monospace;
+            font-size: 0.85rem;
+            overflow-y: auto;
+            background-color: #0d0d15; /* Darker log bg */
+        }
+
+        .log-entry {
+            margin-bottom: 0.25rem;
+            padding: 0.25rem;
+            border-radius: 3px;
+        }
+        .log-entry.error { background-color: rgba(239, 68, 68, 0.1); border-left: 3px solid var(--error); }
+        .log-entry.warning { background-color: rgba(255, 204, 0, 0.1); border-left: 3px solid var(--warning); }
+        .log-entry.info { background-color: rgba(59, 130, 246, 0.1); border-left: 3px solid var(--info); }
+
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-left">
+            <span>ArnesViz</span>
+            <span id="file-name">- No Project Loaded -</span>
+        </div>
+        <div class="header-center">
+            <div class="view-tabs">
+                <div class="view-tab active" data-view="visual">Visual</div>
+                <div class="view-tab" data-view="table">Table</div>
+            </div>
+        </div>
+        <div class="header-right">
+            <button id="btn-edit-mode" class="btn-edit-mode">
+                Edit Mode
+            </button>
+            <button id="btn-config" class="btn-config">
+                ⚙ Config
+            </button>
+        </div>
+    </header>
+
+    <div class="work-area">
+        <div id="svg-container"> <!-- Placeholder for SVG -->
+            <p>SVG Visualization will go here.</p>
+        </div>
+        <div id="table-container"> <!-- Placeholder for Table -->
+            <p>Data Table will go here.</p>
+        </div>
+    </div>
+
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-title">Details / Config</div>
+            <button class="btn-close-sidebar" id="btn-close-sidebar">&times;</button>
+        </div>
+        <div class="sidebar-content" id="sidebar-content">
+            <p>Sidebar content will appear here based on state.</p>
+        </div>
+    </div>
+
+    <div class="log-panel" id="log-panel">
+        <div class="log-header">
+            <h3>Log</h3>
+            <div class="log-controls">
+                <button class="log-btn" id="btn-clear-log">Clear</button>
+                <button class="log-btn" id="btn-collapse-log">Collapse</button>
+            </div>
+        </div>
+        <div class="log-content" id="log-content">
+            <div class="log-entry info">[INFO] Application started. Ready to load project.</div>
+        </div>
+    </div>
+
+    <script>
+        // --- Reactive Global State Management ---
+        let state = {
+            project: null,
+            selectedEntity: null,
+            sidebarState: 'closed', // 'closed', 'details', 'config'
+            activeView: 'visual', // 'table' or 'visual'
+            editMode: false,
+            isDirty: false
+        };
+
+        const subscribers = [];
+
+        function subscribe(callback) {
+            subscribers.push(callback);
+        }
+
+        function updateState(newState) {
+            state = { ...state, ...newState };
+            subscribers.forEach(callback => callback(state));
+        }
+
+        // --- DOM Elements ---
+        const $fileName = document.getElementById('file-name');
+        const $viewTabs = document.querySelectorAll('.view-tab');
+        const $btnEditMode = document.getElementById('btn-edit-mode');
+        const $btnConfig = document.getElementById('btn-config');
+        const $sidebar = document.getElementById('sidebar');
+        const $btnCloseSidebar = document.getElementById('btn-close-sidebar');
+        const $svgContainer = document.getElementById('svg-container');
+        const $tableContainer = document.getElementById('table-container');
+        const $btnCollapseLog = document.getElementById('btn-collapse-log');
+        const $logPanel = document.getElementById('log-panel');
+
+        // --- Initial State Sync to UI ---
+        function syncStateToUI(state) {
+            // Update Edit Mode button
+            $btnEditMode.classList.toggle('active', state.editMode);
+
+            // Update View Tabs
+            $viewTabs.forEach(tab => {
+                tab.classList.toggle('active', tab.dataset.view === state.activeView);
+            });
+            // Show appropriate container
+            $svgContainer.style.display = state.activeView === 'visual' ? 'flex' : 'none';
+            $tableContainer.style.display = state.activeView === 'table' ? 'flex' : 'none';
+
+            // Update Sidebar
+            $sidebar.classList.toggle('open', state.sidebarState !== 'closed');
+            // Update file name if project exists
+            if (state.project && state.project.metadata && state.project.metadata.projectInfo && state.project.metadata.projectInfo.name) {
+                 $fileName.textContent = `- ${state.project.metadata.projectInfo.name} -`;
+             } else {
+                 $fileName.textContent = '- No Project Loaded -';
+             }
+        }
+
+        // Subscribe UI updates to state changes
+        subscribe(syncStateToUI);
+
+        // --- Event Handlers ---
+
+        // View Tabs
+        $viewTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                updateState({ activeView: tab.dataset.view });
+            });
+        });
+
+        // Edit Mode Toggle
+        $btnEditMode.addEventListener('click', () => {
+            updateState({ editMode: !state.editMode });
+        });
+
+        // Config Button
+        $btnConfig.addEventListener('click', () => {
+            updateState({ sidebarState: state.sidebarState === 'config' ? 'closed' : 'config' });
+        });
+
+        // Close Sidebar Button
+        $btnCloseSidebar.addEventListener('click', () => {
+            updateState({ sidebarState: 'closed' });
+        });
+
+        // Collapse Log Panel
+        $btnCollapseLog.addEventListener('click', () => {
+            $logPanel.classList.toggle('collapsed');
+            $btnCollapseLog.textContent = $logPanel.classList.contains('collapsed') ? 'Expand' : 'Collapse';
+        });
+
+        // --- Keyboard Shortcuts (11.7) ---
+        document.addEventListener('keydown', (event) => {
+            if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'e') {
+                event.preventDefault();
+                updateState({ editMode: !state.editMode });
+            }
+            if (event.ctrlKey && event.key.toLowerCase() === 's') {
+                event.preventDefault();
+                console.log("Export shortcut triggered (Ctrl+S)");
+                // Implement export logic later
+            }
+            if (event.ctrlKey && event.key.toLowerCase() === 'o') {
+                event.preventDefault();
+                console.log("Import shortcut triggered (Ctrl+O)");
+                // Implement import logic later
+            }
+            if (event.key === 'Escape') {
+                // Close sidebar if open, or deselect entity if details are shown
+                if (state.sidebarState !== 'closed') {
+                    updateState({ sidebarState: 'closed' });
+                } else if (state.selectedEntity) {
+                     updateState({ selectedEntity: null }); // Assuming this triggers deselection
+                 }
+            }
+            if (event.key === 'f' || event.key === 'F') {
+                 // Focus filter logic would go here, triggering filter panel if needed
+                 console.log("Filter shortcut triggered (F)");
+                 // Implement filter focus/open logic later
+             }
+        });
+
+        // Initialize UI based on initial state
+        syncStateToUI(state);
+
+    </script>
+</body>
+</html>
