@@ -61,10 +61,10 @@ Los elementos que no coinciden se atenúan en la vista visual (opacidad reducida
 | Campo a autocompletar | Se infiere de | Condición |
 |---|---|---|
 | `wires.gaugeUnit` | `wireTypeRef.unit` | Si `wireTypeRef` existe y tiene `unit` |
-| `wires.color` | `nets.colorCode` de la net asignada | Si el wire tiene `net` y la net tiene `colorCode` en `colorPalette` |
+| `wires.color` | `nets.colorCode` de la net asignada | Si el wire tiene `net` y la net tiene `colorCode` en `colorPalette`. Si no, default `"black"`. |
 | `connectors.pins` | `modelRef.pins` | Si `modelRef` existe y tiene `pins` |
 | `connectors.gender` | `modelRef.gender` | Si `modelRef` existe y tiene `gender` |
-| `mates.pinMapping` | Valor por defecto `"direct"` | Al crear un mate nuevo |
+| `mates.pinMapping` | Valor por defecto `"direct"` | Al crear un mate nuevo **desde la UI**. Mates existentes en el JSON mantienen su valor original. |
 | `wires.gaugeUnit` | `"mm2"` | Si no hay `wireTypeRef` (default global) |
 
 1.5.3. El autocompletado se dispara:
@@ -113,7 +113,7 @@ Se mantiene el propósito original del MVP: ofrecer una vista interactiva del ar
 - Todo componente con `parent_id: null` tiene posición absoluta respecto al lienzo (atributos `x`, `y`).
 - Todo componente con `parent_id` no nulo tiene posición relativa a su padre (atributos `offsetX`, `offsetY` para contenedores; `offset` para conectores fijos; los conectores volantes no almacenan posición propia).
 
-2.6.2. En la práctica actual, solo `T100` (system raíz) cumple `parent_id: null`. La regla está enunciada de forma genérica para admitir futuros componentes raíz sin modificar la lógica de posicionamiento.
+2.6.2. En la práctica actual, solo `T100` (system raíz) cumple `parent_id: null`. Los conectores como C004 y C005 tienen `parent_id: "T100"` (es decir, tienen padre; no son `null`). La regla está enunciada de forma genérica para admitir futuros componentes raíz sin modificar la lógica de posicionamiento.
 
 2.6.3. Las dimensiones (`width`, `height`) se almacenan siempre en un objeto `size` separado de la posición, tanto para contenedores como para conectores. Esto diferencia conceptualmente la ubicación del size y facilita el mantenimiento del código.
 
@@ -151,6 +151,8 @@ db.json
 2.7.5. El archivo **NO debe contener comentarios** (`//` ni `/* */`). JSON estándar no los soporta. Si se necesitan anotaciones, se usa el campo `notes` de cada entidad o un campo `"_comment"` a nivel raíz.
 
 2.7.6. **Campo `metadata.version` (V2.2):** Es un **contador de guardados** (number), no una versión del esquema. Se incrementa en 1 cada vez que el usuario exporta/guarda el archivo. Comienza en 1. Si el usuario necesita registrar la versión del proyecto (ej: "MotoStudents v2.0"), puede hacerlo en `metadata.projectInfo.description` o en un campo custom dentro de `projectInfo`. No existe lógica de migración basada en este campo.
+
+> **Nota histórica (V2.3):** En V2.2, el campo `revision` fue renombrado a `version`. La funcionalidad es idéntica: contador de guardados que incrementa en 1.
 
 2.7.7. **No existe `metadata.uiSettings`** (eliminado en V2.1). Todas las preferencias de interfaz (tema, zoom, posición del lienzo, filtros, vista activa, estado de expansión de contenedores) se almacenan en `localStorage` del navegador. Ver sección 11.9.
 
@@ -276,13 +278,13 @@ Mapea nombres de color descriptivos a valores hexadecimales para el renderizado 
 
 2.9.1. El objeto `schema` define reglas de validación **dinámicas** que la aplicación interpreta automáticamente al cargar o modificar el JSON. Esto permite cambiar reglas de validación sin modificar el código JavaScript.
 
-2.9.2. **Implementación (V2.3):** La validación se implementa en **JavaScript 100% custom**, sin librerías externas. La función `validateProject()` maneja todas las reglas (required, recommended, pattern, unique, ref) y las reglas de negocio (secciones 10.1 a 10.16). No se utiliza AJV ni ninguna otra librería de validación.
+2.9.2. **Implementación (V2.3):** La validación se implementa en **JavaScript 100% custom**, sin librerías externas. La función `validateProject()` maneja todas las reglas (required, recommended, pattern, unique, ref) y las reglas de negocio (secciones 10.1 a 10.12 y 10.14 a 10.16). No se utiliza AJV ni ninguna otra librería de validación.
 
 2.9.3. **Validación unificada (V2.2):** Toda la validación se ejecuta desde una **única función `validateProject()`** que:
 1. Itera por cada array de `data` (containers, connectors, wires, mates).
 2. Aplica el sub-schema correspondiente a cada entidad (required, recommended).
 3. Aplica las reglas globales (unique, pattern, ref).
-4. Aplica las reglas de negocio (10.1 a 10.16).
+4. Aplica las reglas de negocio (10.1 a 10.12 y 10.14 a 10.16).
 5. Retorna un array de objetos `{ level: "error"|"warning"|"info", message: string, entityId: string }`.
 
 Esta función se llama:
@@ -348,7 +350,7 @@ Esta función se llama:
 
 2.9.8. **Criterio de separación schema vs código**:
 - **Schema (validación custom):** Validaciones de **integridad referencial** y **formato** (unique, pattern, ref, required, recommended).
-- **Código (reglas 10.1–10.16):** Validaciones de **lógica de negocio** (géneros opuestos, cinemática, composición de M, compatibilidad jerárquica, conectores volantes sin pareja, ciclos jerárquicos).
+- **Código (reglas 10.1–10.12 y 10.14–10.16):** Validaciones de **lógica de negocio** (géneros opuestos, cinemática, composición de M, compatibilidad jerárquica, conectores volantes sin pareja, ciclos jerárquicos).
 
 ### 2.10 Gestión de Usuarios y Responsables
 
@@ -418,7 +420,7 @@ El término "contenedores" agrupa system, enclosure y pcb bajo un mismo concepto
 
 3.3.1.1. Al arrastrar un contenedor, todos sus descendientes se desplazan el mismo vector **(dx, dy) en tiempo real**, sin retardo.
 3.3.1.2. El contenedor arrastrado **no modifica su size** ni ninguna otra propiedad; solo cambian sus valores de posición (`offsetX`/`offsetY`, o `x`/`y` si es T100).
-3.3.1.3. Los conectores fijos (`mountType: "fixed"`) se reposicionan automáticamente sobre el borde del padre en el mismo fotograma. Los conectores volantes (`mountType: "flying"`) no están anclados cinemáticamente a su contenedor: su posición se recalcula en cada frame a partir de la posición del conector fijo al que están enchufados. Por tanto, un volante se mueve únicamente si el fijo se mueve (por arrastre directo o por movimiento del contenedor que contiene al fijo). Si el contenedor del volante se mueve pero el fijo no, el volante permanece en su sitio, lo que puede provocar que quede fuera de los límites de su contenedor (ver 10.13 y logs).
+3.3.1.3. Los conectores fijos (`mountType: "fixed"`) se reposicionan automáticamente sobre el borde del padre en el mismo fotograma. Los conectores volantes (`mountType: "flying"`) no están anclados cinemáticamente a su contenedor: su posición se recalcula en cada frame a partir de la posición del conector fijo al que están enchufados. Por tanto, un volante se mueve únicamente si el fijo se mueve (por arrastre directo o por movimiento del contenedor que contiene al fijo). Si el contenedor del volante se mueve pero el fijo no, el volante permanece en su sitio, lo que puede provocar que quede fuera de los límites de su contenedor (ver 10.13, panel de logs).
 
 **Memoria de diseño – 3.3.1**
 El movimiento solidario en tiempo real evita parpadeos. Al ser todas las posiciones relativas, mover un contenedor no requiere actualizar las coordenadas de sus descendientes; el renderizado recalcula las posiciones absolutas a partir de los offsets en cada frame.
@@ -467,7 +469,7 @@ Los conectores son los puntos de conexión eléctrica. Cada uno tiene un género
 
 4.1.1. `mountType` define la cinemática del conector:
  a. **Fijo (`"fixed"`)**: el conector está atornillado o soldado a su contenedor padre. Su posición se calcula a partir de `edgeSide` y `offset`. Al mover el contenedor, el conector se mueve con él.
- b. **Volante (`"flying"`)**: el conector es el extremo de un cable. No está fijado mecánicamente a su contenedor; su `parent_id` es declarativo/organizativo (indica en qué caja está físicamente el cable, permite calcular el ancestro común para los wires y valida la compatibilidad jerárquica), pero no influye en su posición. Esta se calcula a partir del conector fijo al que está enchufado (su pareja en el M). Al mover el contenedor padre, el conector volante **no se desplaza** con él; sigue a su pareja fija. Si como resultado queda fuera de los límites de su contenedor, el sistema registra una advertencia en el panel de logs (ver 10.13), pero no bloquea la acción.
+ b. **Volante (`"flying"`)**: el conector es el extremo de un cable. No está fijado mecánicamente a su contenedor; su `parent_id` es declarativo/organizativo (indica en qué caja está físicamente el cable, permite calcular el ancestro común para los wires y valida la compatibilidad jerárquica), pero no influye en su posición. Esta se calcula a partir del conector fijo al que está enchufado (su pareja en el M). Al mover el contenedor padre, el conector volante **no se desplaza** con él; sigue a su pareja fija. Si como resultado queda fuera de los límites de su contenedor, el sistema registra una advertencia en el panel de logs (ver 10.13, panel de logs), pero no bloquea la acción.
 
 4.1.2. Definición de `offset` (solo para `mountType: "fixed"`):
  a. Para `"left"` o `"right"`: `offset` es la distancia desde el borde superior del contenedor padre hasta el borde superior del conector.
@@ -539,7 +541,7 @@ Los conectores C002, C004, C005 y C007 son volantes: son los extremos de los cab
 ### 4.4 Posicionamiento de conectores
 
 4.4.1. Conector fijo: completamente dentro del contenedor, con la cara de pines exactamente sobre el borde indicado por `edgeSide`.
-4.4.2. Conector volante: su posición se calcula para quedar enfrentado a su pareja fija (ver 4.1.4). Puede quedar fuera de los límites de su contenedor padre; esto genera una advertencia en el panel de logs (10.13) pero no se bloquea.
+4.4.2. Conector volante: su posición se calcula para quedar enfrentado a su pareja fija (ver 4.1.4). Puede quedar fuera de los límites de su contenedor padre; esto genera una advertencia en el panel de logs (10.13, panel de logs) pero no se bloquea.
 4.4.3. Ejemplo: `edgeSide: "right"` en un fijo → borde derecho del conector toca el borde derecho del contenedor.
 
 ### 4.5 Movimiento de conectores
@@ -570,13 +572,13 @@ Representan un conductor físico real (cable soldado o crimpado). No transmiten 
 | length      | number | Longitud real en mm. **Campo directo y altamente editable.** |
 | gauge       | number / null | Valor numérico del calibre. **Recomendado, no obligatorio.** Si falta, se genera Advertencia en logs. |
 | gaugeUnit   | string / null | `"AWG"` o `"mm2"`. **Opcional.** Si `wireTypeRef` existe, se infiere del catálogo (ver 1.5). Si no existe, defaultea a `"mm2"`. |
-| color       | string | Color de línea (ref a `catalogs.colorPalette`). Defecto: `"blue"`. |
+| color       | string | Color de línea (ref a `catalogs.colorPalette`). Defecto: `"black"`. Si el wire tiene `net` y la net tiene `colorCode`, el color se autocompleta desde la net (ver 1.5). |
 | thickness   | number | Grosor en px (opcional) |
 | wireTypeRef | string / null | Ref a `catalogs.wireTypes`. Opcional, informativo. |
 | owner       | string / null | Ref a `catalogs.people`. Opcional. |
 | notes       | array  | Histórico de notas |
 
-> **Nota (V2.3):** El campo `gauge` es **recomendado pero no obligatorio**. La sección del cable no se representa visualmente en el dibujo SVG (el grosor visual lo controla `thickness`), por lo que la ausencia de `gauge` no impide el renderizado. Si `gauge` falta, se genera una **Advertencia** en el panel de logs para recordar al usuario documentarlo.
+> **Nota (V2.3):** El campo `gauge` es **recomendado pero no obligatorio**. La sección del cable no se representa visualmente en el dibujo SVG (el grosor visual lo controla `thickness`), por lo que la ausencia de `gauge` no impide el renderizado. Si `gauge` falta, se genera una **Advertencia** en el panel de logs para recordar al usuario documentarlo. En el ejemplo, todos los wires tienen `gauge` rellenado como buena práctica de documentación.
 
 > **Nota (V2.3):** El campo `gaugeUnit` es **opcional**. Si el wire tiene `wireTypeRef` y el tipo de cable tiene `unit`, `gaugeUnit` se **autocompleta** con ese valor (principio de inferencia, ver 1.5). Si no hay `wireTypeRef`, `gaugeUnit` defaultea a `"mm2"`. El usuario puede sobreescribir el valor autocompletado.
 
@@ -646,7 +648,7 @@ Define una unión macho‑hembra entre dos conectores. Unión rígida: los conec
  c. Si `pinMapping` es `null` o no está presente, no se aplica validación automática de mapeo.
  d. Si los conectores tienen distinto número de pines y `pinMapping` es `"direct"` o `"reversed"`, el sistema emitirá una advertencia informativa indicando cuántos pines del conector más grande quedan sin asignar en este acople.
 
-6.2.6. **Autocompletado de `pinMapping` (V2.3):** Al crear un nuevo mate desde la interfaz, el campo `pinMapping` se autocompleta con `"direct"` como valor sugerido (principio de inferencia, ver 1.5). El usuario puede cambiarlo a `"reversed"` o `null` según necesite. La validación de mapeo solo se activa si el valor es explícitamente `"direct"` o `"reversed"`.
+6.2.6. **Autocompletado de `pinMapping` (V2.3):** Al crear un nuevo mate desde la interfaz, el campo `pinMapping` se autocompleta con `"direct"` como valor sugerido (principio de inferencia, ver 1.5). El usuario puede cambiarlo a `"reversed"` o `null` según necesite. La validación de mapeo solo se activa si el valor es explícitamente `"direct"` o `"reversed"`. Este autocompletado aplica solo a mates **nuevos creados desde la interfaz**. Los mates existentes en el JSON mantienen su valor original (ej: M004 con `pinMapping: null`).
 
 6.2.7. **Limitación del modelo de acople (V2.3):** Un M conecta **exactamente dos conectores** (un `from` y un `to`). Casos atípicos como un conector de N pines conectado a dos conectores de N/2 pines deben representarse como **dos M separados**, cada uno con `pinMapping: null` (sin validación automática, porque el mapeo es parcial). Este caso es extremadamente raro en arneses de motos eléctricas y no se añade complejidad al modelo para soportarlo nativamente.
 
@@ -817,7 +819,7 @@ T100 (Moto) [owner: leo]
 
 10.13.3. El panel integra automáticamente los resultados de la función unificada `validateProject()` (ver 2.9.3), que incluye:
 - La validación del `schema` custom (required, recommended, pattern, unique, ref).
-- Las reglas de negocio 10.1 a 10.16.
+- Las reglas de negocio (secciones 10.1 a 10.12 y 10.14 a 10.16). La sección 10.13 describe el panel de logs en sí, no una regla de validación.
 - Eventos de usuario relevantes (importación, exportación, borrado).
 
 10.13.4. El panel incluye:
@@ -1239,13 +1241,15 @@ T100 (Moto) [owner: leo]
 
 **Versión 2.2** – Toggle de modo edición en header, barra lateral con memoria de estado, eliminada regla de coherencia modelo/instancia, eliminado `sectionRef` de conectores, `metadata.revision` renombrado a `version`, gauge como campo recomendado, conectores fijos sin pareja (Info en logs), wires con extremos inválidos omitidos en SVG, validación unificada, filtros intermedios, protección de catálogos, detección de archivos incompatibles, documentación de GitHub Pages, manejo de errores de localStorage.
 
-**Versión 2.3** – Principio de inferencia desde catálogos (autocompletado automático, sección 1.5), catálogo `colorPalette` para renderizado SVG, schema específico por entidad (required/recommended por tipo), simplificación del catálogo `people` (solo nombre), eliminación de `owners` en `sections`, eliminación de `shield` de `signalType`, `gaugeUnit` opcional con inferencia desde catálogo (default `"mm2"`), `pinMapping` autocompletado como `"direct"` en UI, limitación de M documentada (dos conectores por acople), `offset` ignorado en volantes (sin advertencia), límite de profundidad jerárquica de 4 niveles con detección de ciclos (regla 10.16), validación 100% custom (sin AJV ni librerías externas), arquitectura single-file (`index.html` + `db.json`), mecánica de pan con botón medio del mouse, fórmula de curvas Bézier documentada, distribución de pines documentada, orden de renderizado (Z-index) documentado, creación/eliminación/duplicación de entidades documentada, tabla nativa HTML documentada, responsive con panel overlay, ejemplo base restaurado (todos los M/W comparten net `GND`).
+**Versión 2.3** – Principio de inferencia desde catálogos (autocompletado automático, sección 1.5), catálogo `colorPalette` para renderizado SVG, schema específico por entidad (required/recommended por tipo), simplificación del catálogo `people` (solo nombre), eliminación de `owners` en `sections`, eliminación de `shield` de `signalType`, `gaugeUnit` opcional con inferencia desde catálogo (default `"mm2"`), `pinMapping` autocompletado como `"direct"` en UI (solo para mates nuevos), limitación de M documentada (dos conectores por acople), `offset` ignorado en volantes (sin advertencia), límite de profundidad jerárquica de 4 niveles con detección de ciclos (regla 10.16), validación 100% custom (sin AJV ni librerías externas), arquitectura single-file (`index.html` + `db.json`), mecánica de pan con botón medio del mouse, fórmula de curvas Bézier documentada, distribución de pines documentada, orden de renderizado (Z-index) documentado, creación/eliminación/duplicación de entidades documentada, tabla nativa HTML documentada, responsive con panel overlay, ejemplo base restaurado (todos los M/W comparten net `GND`), correcciones de referencias cruzadas (3.3.1.3, 4.1.1.b, 4.4.2, 10.13.3), nota histórica sobre renombramiento revision→version, color por defecto cambiado a `"black"`.
 
 ---
 
 ## APÉNDICE A – JSON DE EJEMPLO COMPLETO (V2.3)
 
 A continuación se muestra un archivo `db.json` completo y válido que implementa todos los conceptos de esta documentación. Representa fielmente los datos del ejemplo de la V1.9.1 (5 contenedores, 9 conectores, 3 wires, 4 mates) enriquecidos con catálogos, schema y las mejoras de V2.3.
+
+> **Nota:** El valor `version: 5` es ilustrativo y representa un proyecto que ha sido guardado 5 veces.
 
 ```json
 {
@@ -1756,7 +1760,8 @@ A continuación se muestra un archivo `db.json` completo y válido que implement
 | **Catálogo `colorPalette`** | No existía | **Nuevo**: mapeo de nombres a hexadecimales |
 | **Schema** | Genérico (`required: ["id", "type"]`) | **Específico por entidad** (containers, connectors, wires, mates) |
 | **`gaugeUnit` en wires** | Recomendado, default "mm2" | **Opcional**, inferido del catálogo si wireTypeRef existe, default "mm2" |
-| **`pinMapping` en mates** | null o no definido | **Autocompletado como "direct"** en UI. Validación solo si explícito |
+| **`color` en wires** | Defecto "blue" | **Defecto "black"**, autocompletado desde net |
+| **`pinMapping` en mates** | null o no definido | **Autocompletado como "direct"** en UI (solo mates nuevos). Mates existentes mantienen su valor |
 | **Limitación de M** | No documentada | **Documentada**: dos conectores por acople. Casos atípicos con dos M separados |
 | **`offset` en volantes** | null (no especificado comportamiento con valor) | **Ignorado** sin advertencia |
 | **Profundidad jerárquica** | Sin límite | **Máximo 4 niveles** + detección de ciclos |
@@ -1771,6 +1776,8 @@ A continuación se muestra un archivo `db.json` completo y válido que implement
 | **Responsive** | No especificado | **Panel overlay**, 100% ancho en móvil |
 | **Ejemplo base** | Nets variadas (GND, +12V, +5V) | **Restaurado**: todos comparten `GND` |
 | **Alineación pin 1** | Sin nota sobre orientación | **Nota añadida**: asume misma orientación de numeración |
+| **Referencias cruzadas** | Algunas imprecisas | **Corregidas**: 3.3.1.3, 4.1.1.b, 4.4.2, 10.13.3 |
+| **Nota histórica version** | No existía | **Añadida** en 2.7.6: revision→version en V2.2 |
 
 ---
 
