@@ -1262,6 +1262,7 @@ All agents operate in **thinking mode** (not fast mode) to ensure deep reasoning
 
 ---
 
+
 ## APPENDIX A – COMPLETE EXAMPLE JSON (V2.5)
 
 **Note:** A complete example JSON file (`db.json`) is provided as a separate file. It contains 5 containers, 9 connectors, 3 wires, and 4 mates with all catalogs and schema definitions.
